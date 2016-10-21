@@ -33,7 +33,7 @@ def _read_dictionary(path_input):
 
             # count
             c += 1
-            if c % 100 == 0:
+            if c % 100000 == 0:
                 print(c)
 
     # transform integer fields and float fields in np.array
@@ -76,21 +76,26 @@ def store_order(path_input, path_output):
 
     dict_raw_data = _read_dictionary(path_input)
 
+    print('extracting orders...')
     df = _extract_orders(dict_raw_data)
 
-    store = pd.HDFStore(path_output)
-    store['test_table'] = df
-    store.close()
+    dict_raw_data = None 
+
+    print('sotring orders...')
+    #store = pd.HDFStore(path_output)
+    #store['test_table'] = df
+    #store.close()
+    df.to_pickle(path_output)
+    print('done!')
 
     return 0
 
 if __name__ == "__main__":
 
     path_name = '/Users/eliazarinelli/Desktop/rebsq/stage'
-    #file_name = 'Trades200702.txt.gz'
-    file_name = 'pippo.txt.gz'
+    file_name = 'Trades200702.txt.gz'
     path_input = path_name + '/' + file_name
-    path_output = path_name + '/store.h5'
+    path_output = path_name + '/trades_07_02.p'
 
     store_order(path_input, path_output)
 
