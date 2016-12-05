@@ -1,9 +1,12 @@
 import numpy as np 
 import pandas as pd
+import datetime
 import gzip
 import csv
 
-from constants import FIELDS_TO_KEEP, FIELD_VOL_PRICE, GROUP_KEY_1, GROUP_SUM_1, GROUP_REP_1
+from constants import FIELDS_TO_KEEP, FIELD_VOL_PRICE, GROUP_KEY_1, GROUP_SUM_1, GROUP_REP_1,\
+    FIELD_TIME_PLACEMENT, FIELD_TIME_EXECUTION, FIELD_DATE, FIELD_MIN_START, FIELD_MIN_END,\
+    FIELD_RENAME
 
 
 def _read_dictionary(path_input):
@@ -64,10 +67,29 @@ def _extract_orders(dict_raw_data):
                           df_gby_1[GROUP_SUM_1[0]].count(),
                           df_gby_1[GROUP_REP_1].first()], axis=1)
 
-
     # resetting the index of the grouped dataframe
     # this operation transforms the index of a dataframe into a field
     df_grouped_1 = df_tmp_1.reset_index()
+
+    # rename columns to avoid double names
+    tmp_columns = list(df_grouped_1.columns)
+    tmp_columns[tmp_columns.index(GROUP_SUM_1[0])] = FIELD_RENAME[0]
+    tmp_columns[tmp_columns.index(GROUP_SUM_1[0])] = FIELD_RENAME[1]
+    df_grouped_1.columns = tmp_columns
+
+    # julian date and min from midnight
+    dt_str = list(df_grouped_1[FIELD_TIME_PLACEMENT])
+    dd = [datetime.datetime.strptime(dd, '%Y-%m-%d %H:%M:%S') for dd in dt_str]
+    day = [d.toordinal() for d in dd]
+    min_start = [d.hour*60 + d.minute for d in dd]
+
+    dt_str = list(df_grouped_1[FIELD_TIME_EXECUTION])
+    dd = [datetime.datetime.strptime(dd, '%Y-%m-%d %H:%M:%S') for dd in dt_str]
+    min_end = [d.hour*60 + d.minute for d in dd]
+
+    df_grouped_1[FIELD_DATE] = day
+    df_grouped_1[FIELD_MIN_START] = min_start
+    df_grouped_1[FIELD_MIN_END] = min_end
 
     return df_grouped_1
 
