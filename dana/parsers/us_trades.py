@@ -3,7 +3,7 @@ import pandas as pd
 import gzip
 import csv
 
-from constants import *
+from constants import FIELDS_TO_KEEP, FIELD_VOL_PRICE, GROUP_KEY_1, GROUP_SUM_1, GROUP_REP_1
 
 
 def _read_dictionary(path_input):
@@ -92,11 +92,11 @@ def store_order(path_input, path_output):
 
 if __name__ == "__main__":
 
-    path_name = '/Users/eliazarinelli/Desktop/rebsq/stage'
-    file_name = 'Trades200702.txt.gz'
-    path_input = path_name + '/' + file_name
-    path_output = path_name + '/trades_07_02.p'
+    print('extracting dict...')
+    dict_raw_data = _read_dictionary('/Users/eliazarinelli/Desktop/rebsq/stage/tmp_07_01.txt.gz')
 
-    store_order(path_input, path_output)
+    print('extracting orders...')
+    df = _extract_orders(dict_raw_data)
+
 
 
