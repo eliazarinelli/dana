@@ -6,6 +6,11 @@ import csv
 
 from configurations import FIELDS_INT, FIELDS_STR, FIELDS_FLOAT, FIELDS_INPUT
 
+from constants import FIELDS_TO_KEEP, FIELD_VOL_PRICE, GROUP_KEY_1, GROUP_SUM_1, GROUP_REP_1,\
+    FIELD_TIME_PLACEMENT, FIELD_TIME_EXECUTION, FIELD_DATE, FIELD_MIN_START, FIELD_MIN_END,\
+    FIELD_VWAP_INF, GROUPBY_RENAME, GROUPBY_OUTPUT, FIELDS_OUTPUT
+
+
 def _import_dict(path_input):
 
     list_output = []
@@ -24,24 +29,41 @@ def _import_dict(path_input):
 
     return list_output
 
+def _extract_orders(dict_raw_data):
 
+    # create dataframe
+    df = pd.DataFrame(dict_raw_data)
 
+    # calculating for each record the product of the volume times the price
+    df[FIELD_VOL_PRICE[2]] = df.loc[:, FIELD_VOL_PRICE[0]] * df.loc[:, FIELD_VOL_PRICE[1]]
 
+    # FIRST AGGREGATION
+    df_gby_1 = df.groupby(GROUP_KEY_1)
 
+    # for each order:
+    # sum volume and price*volume
+    # count the number of records
+    # report the other fields
+    df_tmp_1 = pd.concat([df_gby_1[GROUP_SUM_1].sum(),
+                          df_gby_1[GROUP_SUM_1[0]].count(),
+                          df_gby_1[GROUP_REP_1].first()], axis=1)
 
+    # resetting the index of the grouped dataframe
+    # this operation transforms the index of a dataframe into a field
+    df_grouped_1 = df_tmp_1.reset_index()
 
+    df_grouped_1.columns = GROUP_KEY_1 + GROUPBY_RENAME + GROUP_REP_1
 
+    # rename columns to avoid double names
+    #tmp_columns = list(df_grouped_1.columns)
+    #tmp_columns[tmp_columns.index(GROUP_SUM_1[0])] = FIELD_RENAME[0]
+    #tmp_columns[tmp_columns.index(GROUP_SUM_1[0])] = FIELD_RENAME[1]
+    #df_grouped_1.columns = tmp_columns
 
+    # inferred vwap
+    df_grouped_1[GROUPBY_OUTPUT[1]] = df_grouped_1[GROUPBY_RENAME[1]]/df_grouped_1[GROUPBY_RENAME[0]]
 
-
-
-
-
-
-
-from constants import FIELDS_TO_KEEP, FIELD_VOL_PRICE, GROUP_KEY_1, GROUP_SUM_1, GROUP_REP_1,\
-    FIELD_TIME_PLACEMENT, FIELD_TIME_EXECUTION, FIELD_DATE, FIELD_MIN_START, FIELD_MIN_END,\
-    FIELD_RENAME, FIELD_VWAP_INF
+    return df_grouped_1[FIELDS_OUTPUT].to_dict(orient='records')
 
 
 def _read_dictionary(path_input):
@@ -82,7 +104,7 @@ def _read_dictionary(path_input):
     return dict_raw_data
 
 
-def _extract_orders(dict_raw_data):
+def _extract_orders_old(dict_raw_data):
 
     # create dataframe
     df = pd.DataFrame(dict_raw_data)
@@ -159,7 +181,10 @@ if __name__ == "__main__":
         df = _extract_orders(dict_raw_data)
 
     print('extracting dict...')
-    tmp = _import_dict('/Users/eliazarinelli/Desktop/rebsq/stage/tmp_07_01.txt.gz')
+    tmp_0 = _import_dict('/Users/eliazarinelli/Desktop/rebsq/stage/tmp_07_01.txt.gz')
+
+    print('extracting orders...')
+    tmp_1 = _extract_orders(tmp_0)
 
     print('done')
 
