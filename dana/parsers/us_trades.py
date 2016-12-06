@@ -4,9 +4,44 @@ import datetime
 import gzip
 import csv
 
+from configurations import FIELDS_INT, FIELDS_STR, FIELDS_FLOAT, FIELDS_INPUT
+
+def _import_dict(path_input):
+
+    list_output = []
+
+    with gzip.open(path_input, 'rt') as file_gz:
+
+        # reading the input file line by line
+        reader = csv.DictReader(file_gz, delimiter='|')
+
+        for row in reader:
+            if all([row[k] for k in FIELDS_INPUT]):
+                dict_int = {k: int(row[k]) for k in FIELDS_INT}
+                dict_str = {k: str(row[k]) for k in FIELDS_STR}
+                dict_float = {k: float(row[k]) for k in FIELDS_FLOAT}
+                list_output.append({**dict_int, **dict_str, **dict_float})
+
+    return list_output
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 from constants import FIELDS_TO_KEEP, FIELD_VOL_PRICE, GROUP_KEY_1, GROUP_SUM_1, GROUP_REP_1,\
     FIELD_TIME_PLACEMENT, FIELD_TIME_EXECUTION, FIELD_DATE, FIELD_MIN_START, FIELD_MIN_END,\
-    FIELD_RENAME
+    FIELD_RENAME, FIELD_VWAP_INF
 
 
 def _read_dictionary(path_input):
@@ -49,7 +84,6 @@ def _read_dictionary(path_input):
 
 def _extract_orders(dict_raw_data):
 
-
     # create dataframe
     df = pd.DataFrame(dict_raw_data)
 
@@ -77,6 +111,9 @@ def _extract_orders(dict_raw_data):
     tmp_columns[tmp_columns.index(GROUP_SUM_1[0])] = FIELD_RENAME[1]
     df_grouped_1.columns = tmp_columns
 
+    # inferred vwap
+    df_grouped_1[FIELD_VWAP_INF] = df_grouped_1[GROUP_SUM_1[1]]/df_grouped_1[FIELD_RENAME[0]]
+
     # julian date and min from midnight
     dt_str = list(df_grouped_1[FIELD_TIME_PLACEMENT])
     dd = [datetime.datetime.strptime(dd, '%Y-%m-%d %H:%M:%S') for dd in dt_str]
@@ -90,6 +127,7 @@ def _extract_orders(dict_raw_data):
     df_grouped_1[FIELD_DATE] = day
     df_grouped_1[FIELD_MIN_START] = min_start
     df_grouped_1[FIELD_MIN_END] = min_end
+
 
     return df_grouped_1
 
@@ -113,12 +151,15 @@ def store_order(path_input, path_output):
     return 0
 
 if __name__ == "__main__":
+    if False:
+        print('extracting dict...')
+        dict_raw_data = _read_dictionary('/Users/eliazarinelli/Desktop/rebsq/stage/tmp_07_01.txt.gz')
+
+        print('extracting orders...')
+        df = _extract_orders(dict_raw_data)
 
     print('extracting dict...')
-    dict_raw_data = _read_dictionary('/Users/eliazarinelli/Desktop/rebsq/stage/tmp_07_01.txt.gz')
+    tmp = _import_dict('/Users/eliazarinelli/Desktop/rebsq/stage/tmp_07_01.txt.gz')
 
-    print('extracting orders...')
-    df = _extract_orders(dict_raw_data)
-
-
+    print('done')
 
