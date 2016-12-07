@@ -4,13 +4,13 @@ import datetime
 import gzip
 import csv
 
-from configurations import FIELD_COUNT, FIELD_VOL, FIELD_PRC, FIELD_VP, FIELD_VWAP
-from configurations import FIELDS_INT, FIELDS_STR, FIELDS_FLOAT
-from configurations import FIELDS_KEY, FIELDS_SUM, FIELDS_REP
-from configurations import FIELDS_OUTPUT
-from configurations import FIELD_TIME_PLACEMENT, FIELD_TIME_EXECUTION, FIELD_DATE, FIELD_MIN_START, FIELD_MIN_END
-from configurations import FIELD_HASH
-
+#from configurations import FIELD_COUNT, FIELD_VOL, FIELD_PRC, FIELD_VP, FIELD_VWAP
+#from configurations import FIELDS_INT, FIELDS_STR, FIELDS_FLOAT
+#from configurations import FIELDS_KEY, FIELDS_SUM, FIELDS_REP
+#from configurations import FIELDS_OUTPUT
+#from configurations import FIELD_TIME_PLACEMENT, FIELD_TIME_EXECUTION, FIELD_DATE, FIELD_MIN_START, FIELD_MIN_END
+#from configurations import FIELD_HASH
+from configurations import *
 
 def _import_dict(path_input):
 
@@ -26,7 +26,7 @@ def _import_dict(path_input):
                 dict_int = {k: int(row[k]) for k in FIELDS_INT}
                 dict_str = {k: str(row[k]) for k in FIELDS_STR}
                 dict_float = {k: float(row[k]) for k in FIELDS_FLOAT}
-                list_output.append({FIELD_COUNT: 1, **dict_int, **dict_str, **dict_float})
+                list_output.append({FIELD_TRADE_COUNT: 1, **dict_int, **dict_str, **dict_float})
 
     return list_output
 
@@ -37,7 +37,7 @@ def _extract_orders(dict_input):
     df = pd.DataFrame(dict_input)
 
     # calculating for each record the product of the volume times the price
-    df[FIELD_VP] = df.loc[:, FIELD_VOL] * df.loc[:, FIELD_PRC]
+    df[FIELD_VP] = df.loc[:, FIELD_TRADE_VOL] * df.loc[:, FIELD_TRADE_PRC]
 
     # FIRST AGGREGATION
     df_gby_1 = df.groupby(FIELDS_KEY)
@@ -54,7 +54,7 @@ def _extract_orders(dict_input):
     df_grouped_1 = df_tmp_1.reset_index()
 
     # inferred vwap
-    df_grouped_1[FIELD_VWAP] = df_grouped_1[FIELD_VP]/df_grouped_1[FIELD_VOL]
+    df_grouped_1[FIELD_VWAP] = df_grouped_1[FIELD_VP]/df_grouped_1[FIELD_TRADE_VOL]
 
     return df_grouped_1[FIELDS_OUTPUT].to_dict(orient='records')
 
@@ -64,7 +64,7 @@ def _add_date_time(ld_input):
     for trade in ld_input:
 
         # datetime format of the placement time
-        dt_placement = datetime.datetime.strptime(trade[FIELD_TIME_PLACEMENT], '%Y-%m-%d %H:%M:%S')
+        dt_placement = datetime.datetime.strptime(trade[FIELD_xdtP], '%Y-%m-%d %H:%M:%S')
 
         # julian date of the placement time
         trade[FIELD_DATE] = dt_placement.toordinal()
@@ -73,7 +73,7 @@ def _add_date_time(ld_input):
         trade[FIELD_MIN_START] = dt_placement.hour*60 + dt_placement.minute
 
         # datetime format of the execution date
-        dt_execution = datetime.datetime.strptime(trade[FIELD_TIME_EXECUTION], '%Y-%m-%d %H:%M:%S')
+        dt_execution = datetime.datetime.strptime(trade[FIELD_xdtX], '%Y-%m-%d %H:%M:%S')
 
         # minute from midnight of the execution time
         trade[FIELD_MIN_END] = dt_execution.hour*60 + dt_execution.minute
