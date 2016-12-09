@@ -4,12 +4,6 @@ import datetime
 import gzip
 import csv
 
-#from configurations import FIELD_COUNT, FIELD_VOL, FIELD_PRC, FIELD_VP, FIELD_VWAP
-#from configurations import FIELDS_INT, FIELDS_STR, FIELDS_FLOAT
-#from configurations import FIELDS_KEY, FIELDS_SUM, FIELDS_REP
-#from configurations import FIELDS_OUTPUT
-#from configurations import FIELD_TIME_PLACEMENT, FIELD_TIME_EXECUTION, FIELD_DATE, FIELD_MIN_START, FIELD_MIN_END
-#from configurations import FIELD_HASH
 from configurations import *
 
 def _import_dict(path_input):
@@ -85,21 +79,18 @@ def _add_hash(ld_input):
 
     for trade in ld_input:
         # joining the fields in the key and generating the hash value
-        trade[FIELD_HASH] = hash(''.join([str(k) for k in FIELDS_KEY]))
+        trade[FIELD_HASH] = hash(''.join([str(trade[k]) for k in FIELDS_KEY]))
 
     return ld_input
 
 
 if __name__ == "__main__":
-    if False:
-        print('extracting dict...')
-        dict_raw_data = _read_dictionary('/Users/eliazarinelli/Desktop/rebsq/stage/tmp_07_01.txt.gz')
 
-        print('extracting orders...')
-        df = _extract_orders(dict_raw_data)
+    path_raw = '/Users/eliazarinelli/db/raw/tmp_07_01.txt.gz'
+    path_stage = '/Users/eliazarinelli/db/stage/test.p'
 
     print('extracting dict...')
-    tmp_0 = _import_dict('/Users/eliazarinelli/Desktop/rebsq/stage/tmp_07_01.txt.gz')
+    tmp_0 = _import_dict(path_raw)
 
     print('extracting orders...')
     tmp_1 = _extract_orders(tmp_0)
@@ -109,5 +100,9 @@ if __name__ == "__main__":
 
     print('adding hash...')
     tmp_3 = _add_hash(tmp_2)
+
+    import pickle
+    pickle.dump(tmp_3, open(path_stage, "wb" ) )
+
     print('done')
 
