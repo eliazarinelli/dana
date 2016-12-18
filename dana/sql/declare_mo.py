@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String,  Float, Date, Time
+from sqlalchemy import Column, Integer, String,  Float, BigInteger
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -9,7 +9,7 @@ Base = declarative_base()
 
 class Order(Base):
     __tablename__ = 'order'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     client = Column(String(250), nullable=False)
     mgr = Column(String(250), nullable=False)
     bkr = Column(String(250), nullable=False)
@@ -27,7 +27,7 @@ class Order(Base):
 
 class DayInfo(Base):
     __tablename__ = 'dayinfo'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     volume = Column(Integer, nullable=False)
     p_vwap = Column(Float, nullable=False)
     p_open = Column(Float, nullable=False)
@@ -39,7 +39,7 @@ class DayInfo(Base):
 
 class PeriodInfo(Base):
     __tablename__ = 'periodinfo'
-    id = Column(Integer, primary_key=True)
+    id = Column(BigInteger, primary_key=True)
     volume = Column(Integer, nullable=False)
     p_start = Column(Float, nullable=False)
     p_end = Column(Float, nullable=False)
@@ -48,12 +48,17 @@ class PeriodInfo(Base):
 if __name__ == '__main__':
 
     # no / at the beginning of the path!
-    path_db = 'Users/eliazarinelli/db/db_sqlite/test.db'
-
-    engine = create_engine('sqlite:////' + path_db)
+    #path_db = 'Users/eliazarinelli/db/db_sqlite/test.db'
+    _user = 'root'
+    # fake pwd
+    _pwd = 'pwd'
+    _host = 'localhost'
+    _db = 'elia_tmp'
+    engine = create_engine('mysql+pymysql://'+_user+':'+_pwd+'@'+_host+'/'+_db)
     session = sessionmaker()
     session.configure(bind=engine)
 
+    Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
 
 
