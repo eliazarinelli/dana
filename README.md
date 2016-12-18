@@ -16,5 +16,7 @@ Activate environment:
 conda activate env_name
 ```
 
-
-
+Install `pymysql` in the local environment:
+```
+conda install pymysql
+```
