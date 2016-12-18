@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String,  Float, BigInteger
 Base = declarative_base()
 
 
-class OrderInfo(Base):
+class Order(Base):
     __tablename__ = 'orderinfo'
     id = Column(BigInteger, primary_key=True)
     client = Column(String(250), nullable=False)
