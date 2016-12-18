@@ -1,8 +1,10 @@
 # dana
 Data Analysis Projects
 
-Install [MySQL](http://dev.mysql.com/)
-Install [Anaconda](http://conda.pydata.org/docs/index.html)
+Install [MySQL](http://dev.mysql.com/).
+
+Install [Anaconda](http://conda.pydata.org/docs/index.html).
+
 Create a local environment with python 3 from Anaconda distribution:
 
 ```
