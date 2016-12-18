@@ -5,7 +5,7 @@ Base = declarative_base()
 
 
 class Order(Base):
-    __tablename__ = 'orderinfo'
+    __tablename__ = 'order'
     id = Column(BigInteger, primary_key=True)
     client = Column(String(250), nullable=False)
     mgr = Column(String(250), nullable=False)
