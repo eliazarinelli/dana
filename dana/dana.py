@@ -1,6 +1,6 @@
-from userconfig import *
+from .userconfig import *
 
-from models import Order, DayInfo, PeriodInfo
+from .models import Order, DayInfo, PeriodInfo
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
