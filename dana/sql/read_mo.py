@@ -7,8 +7,14 @@ class Metaorders():
 
 	def __init__(self):
 		# no / at the beginning of the path!
-		path_db = 'Users/eliazarinelli/db/db_sqlite/test.db'
-		engine = create_engine('sqlite:////' + path_db)
+		#path_db = 'Users/eliazarinelli/db/db_sqlite/test.db'
+		#engine = create_engine('sqlite:////' + path_db)
+		_user = 'root'
+		# fake pwd
+		_pwd = 'pwd'
+		_host = 'localhost'
+		_db = 'elia_tmp'
+		engine = create_engine('mysql+pymysql://'+_user+':'+_pwd+'@'+_host+'/'+_db)
 		Session = sessionmaker()
 		Session.configure(bind=engine)
 		self._session = Session()
