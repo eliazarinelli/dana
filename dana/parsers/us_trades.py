@@ -4,7 +4,7 @@ import datetime
 import gzip
 import csv
 
-from configurations import *
+from .configurations import *
 
 def _import_dict(path_input):
 
