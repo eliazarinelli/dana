@@ -9,8 +9,14 @@ if __name__ == '__main__':
     from sqlalchemy import create_engine
 
     # no / at the beginning of the path
-    path_db = 'Users/eliazarinelli/db/db_sqlite/test.db'
-    engine = create_engine('sqlite:////' + path_db)
+    #path_db = 'Users/eliazarinelli/db/db_sqlite/test.db'
+    #engine = create_engine('sqlite:////' + path_db)
+    _user = 'root'
+    # fake pwd
+    _pwd = 'pwd'
+    _host = 'localhost'
+    _db = 'elia_tmp'
+    engine = create_engine('mysql+pymysql://'+_user+':'+_pwd+'@'+_host+'/'+_db)
 
     from sqlalchemy.orm import sessionmaker
     Session = sessionmaker()
