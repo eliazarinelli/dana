@@ -3,8 +3,9 @@ import pandas as pd
 import datetime
 import gzip
 import csv
+import time
 
-from .configurations import *
+from configurations import *
 
 def _import_dict(path_input):
 
@@ -89,6 +90,7 @@ if __name__ == "__main__":
     path_raw = '/Users/eliazarinelli/db/raw/tmp_07_01.txt.gz'
     path_stage = '/Users/eliazarinelli/db/stage/test.p'
 
+    t_0 = time.time()
     print('extracting dict...')
     tmp_0 = _import_dict(path_raw)
 
@@ -105,4 +107,8 @@ if __name__ == "__main__":
     pickle.dump(tmp_3, open(path_stage, "wb" ) )
 
     print('done')
+    t_1 = time.time()
+
+    print('Total time (secs):')
+    print(t_1-t_0)
 
