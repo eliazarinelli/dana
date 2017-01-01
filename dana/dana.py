@@ -9,7 +9,7 @@ class Dana():
 
 	def __init__(self):
 		engine = create_engine('mysql+pymysql://' + USER_NAME + ':' + USER_PWD +
-							   '@' + DB_HOST + '/' + DB_NAME)
+							   '@' + HOST_NAME + '/' + DB_NAME)
 		Session = sessionmaker()
 		Session.configure(bind=engine)
 		self._session = Session()
