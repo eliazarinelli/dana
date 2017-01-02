@@ -5,7 +5,7 @@ import gzip
 import csv
 import time
 
-from configurations import *
+from conf_ans import *
 
 def _import_dict(path_input):
 
