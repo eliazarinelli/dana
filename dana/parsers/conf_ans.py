@@ -1,3 +1,18 @@
+
+# Set to true if you want to locally dump the output
+BOOL_LOCAL_DUMP = True
+
+# Set to true if you want to commit to the database the output
+BOOL_DB_COMMIT = True
+
+# Name of the input file
+FILE_RAW = '/Users/eliazarinelli/db/raw/tmp_07_01.txt.gz'
+
+# Name of the local dump file
+FILE_STAGE = '/Users/eliazarinelli/db/stage/test.p'
+
+# ##################################################################################
+
 # Fields for volume and price
 FIELD_SIDE = 'side'
 FIELD_TRADE_VOL = 'volume'
@@ -51,3 +66,18 @@ FIELDS_REP = [FIELD_xpP, FIELD_xpX, FIELD_xpPX, FIELD_xvPX, FIELD_dpO,
 # Fields output
 FIELDS_OUTPUT = FIELDS_KEY + FIELDS_REP + [FIELD_TRADE_COUNT, FIELD_TRADE_VOL, FIELD_VWAP]
 
+# ##################################################################################
+
+NAME_MAP = {
+    'orders_id': 'hash_key',
+    'orders_mgr_id': 'mgr_id',
+    'orders_bkr_id': 'bkr_id',
+    'orders_symbol': 'symbol',
+    'orders_side': 'side',
+    'orders_date': 'date',
+    'orders_start_min': 'min_start',
+    'orders_end_min': 'min_end',
+    'orders_v_order': 'xv',
+    'orders_p_vwap': 'xp',
+    'orders_n_trades': 'nn'
+}

@@ -4,6 +4,8 @@ import datetime
 import gzip
 import csv
 import time
+import pickle
+
 
 from conf_ans import *
 
@@ -106,12 +108,9 @@ def _adjust_client(ld_input):
 
 if __name__ == "__main__":
 
-    path_raw = '/Users/eliazarinelli/db/raw/tmp_07_01.txt.gz'
-    path_stage = '/Users/eliazarinelli/db/stage/test.p'
-
     t_0 = time.time()
     print('extracting dict...')
-    tmp_0 = _import_dict(path_raw)
+    tmp_0 = _import_dict(FILE_RAW)
 
     print('extracting orders...')
     tmp_1 = _extract_orders(tmp_0)
@@ -128,9 +127,8 @@ if __name__ == "__main__":
     print('adjusting clientcode...')
     tmp_5 = _adjust_client(tmp_4)
 
-
-    import pickle
-    pickle.dump(tmp_3, open(path_stage, "wb" ) )
+    if BOOL_LOCAL_DUMP:
+        pickle.dump(tmp_3, open(FILE_STAGE, "wb" ) )
 
     print('done')
     t_1 = time.time()
