@@ -68,16 +68,18 @@ FIELDS_OUTPUT = FIELDS_KEY + FIELDS_REP + [FIELD_TRADE_COUNT, FIELD_TRADE_VOL, F
 
 # ##################################################################################
 
-NAME_MAP = {
-    'orders_id': 'hash_key',
-    'orders_mgr_id': 'mgr_id',
-    'orders_bkr_id': 'bkr_id',
-    'orders_symbol': 'symbol',
-    'orders_side': 'side',
-    'orders_date': 'date',
-    'orders_start_min': 'min_start',
-    'orders_end_min': 'min_end',
-    'orders_v_order': 'xv',
-    'orders_p_vwap': 'xp',
-    'orders_n_trades': 'nn'
+THRESHOLD_VWAP = 0.001
+
+ORDERS_NAME_MAP = {
+    'id': FIELD_HASH,
+    'mgr_id': FIELD_MGR_ID,
+    'bkr_id': FIELD_BKR_ID,
+    'symbol': FIELD_symbol,
+    'side': FIELD_SIDE,
+    'date': FIELD_DATE,
+    'start_min': FIELD_MIN_START,
+    'end_min': FIELD_MIN_END,
+    'v_order': FIELD_ORDER_VOL,
+    'p_vwap': FIELD_ORDER_PRC,
+    'n_trades': FIELD_TRADE_COUNT
 }

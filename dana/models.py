@@ -11,7 +11,7 @@ class Orders(Base):
     bkr_id = Column(String(250), nullable=False)
     symbol = Column(String(250), nullable=False)
     side = Column(SmallInteger, nullable=False)
-    date = Column(SmallInteger, nullable=False)
+    date = Column(Integer, nullable=False)
     start_min = Column(SmallInteger, nullable=False)
     end_min = Column(SmallInteger, nullable=False)
     v_order = Column(Integer, nullable=False)

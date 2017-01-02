@@ -6,6 +6,15 @@ import csv
 import time
 import pickle
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+import os
+import sys
+sys.path.insert(0, os.path.abspath('..'))
+
+from models import Base, Orders, DayInfo, PeriodInfo
+from userconfig import *
 
 from conf_ans import *
 
@@ -106,6 +115,38 @@ def _adjust_client(ld_input):
 
     return ld_input
 
+
+def _dump_ld(ld_input):
+    pickle.dump(ld_input, open(FILE_STAGE, "wb" ) )
+
+
+def _write_to_db(ld_input):
+        engine = create_engine(ENGINE_URL)
+        Session = sessionmaker()
+        Session.configure(bind=engine)
+        session = Session()
+
+        for order in ld_input:
+            # check on consistency of the order volume and vwap
+            if order[FIELD_ORDER_VOL] == order[FIELD_TRADE_VOL] \
+                    and np.abs((order[FIELD_ORDER_PRC] - order[FIELD_VWAP])/order[FIELD_ORDER_PRC])<THRESHOLD_VWAP:
+                new_order = Orders(
+                    id=order[ORDERS_NAME_MAP['id']],
+                    mgr_id=order[ORDERS_NAME_MAP['mgr_id']],
+                    bkr_id=order[ORDERS_NAME_MAP['bkr_id']],
+                    symbol=order[ORDERS_NAME_MAP['symbol']],
+                    side=order[ORDERS_NAME_MAP['side']],
+                    date=order[ORDERS_NAME_MAP['date']],
+                    start_min=order[ORDERS_NAME_MAP['start_min']],
+                    end_min=order[ORDERS_NAME_MAP['end_min']],
+                    v_order=order[ORDERS_NAME_MAP['v_order']],
+                    p_vwap=order[ORDERS_NAME_MAP['p_vwap']],
+                    n_trades=order[ORDERS_NAME_MAP['n_trades']]
+                )
+                session.merge(new_order)
+        session.commit()
+
+
 if __name__ == "__main__":
 
     t_0 = time.time()
@@ -128,7 +169,10 @@ if __name__ == "__main__":
     tmp_5 = _adjust_client(tmp_4)
 
     if BOOL_LOCAL_DUMP:
-        pickle.dump(tmp_3, open(FILE_STAGE, "wb" ) )
+        _dump_ld(tmp_5)
+
+    if BOOL_DB_COMMIT:
+        _write_to_db(tmp_5)
 
     print('done')
     t_1 = time.time()
