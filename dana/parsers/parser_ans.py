@@ -85,6 +85,25 @@ def _add_hash(ld_input):
     return ld_input
 
 
+def _add_volatility(ld_input):
+
+    for trade in ld_input:
+        try:
+            trade[FIELD_VOLA] = (trade[FIELD_dpH] - trade[FIELD_dpL])/(trade[FIELD_dpC] - trade[FIELD_dpO])
+        except ZeroDivisionError:
+            trade[FIELD_VOLA] = np.nan
+
+    return ld_input
+
+
+def _adjust_client(ld_input):
+
+    for trade in ld_input:
+        trade[FIELD_MGR_ID] = '_'.join([trade[FIELD_clientcode], trade[FIELD_clientmgrcode]])
+        trade[FIELD_BKR_ID] = '_'.join([trade[FIELD_clientcode], trade[FIELD_clientbkrcode]])
+
+    return ld_input
+
 if __name__ == "__main__":
 
     path_raw = '/Users/eliazarinelli/db/raw/tmp_07_01.txt.gz'
@@ -102,6 +121,13 @@ if __name__ == "__main__":
 
     print('adding hash...')
     tmp_3 = _add_hash(tmp_2)
+
+    print('adding volatility...')
+    tmp_4 = _add_volatility(tmp_3)
+
+    print('adjusting clientcode...')
+    tmp_5 = _adjust_client(tmp_4)
+
 
     import pickle
     pickle.dump(tmp_3, open(path_stage, "wb" ) )

@@ -31,6 +31,9 @@ FIELD_DATE = 'date'
 FIELD_MIN_START = 'min_start'
 FIELD_MIN_END = 'min_end'
 FIELD_HASH = 'hash_key'
+FIELD_VOLA = 'volatility'
+FIELD_MGR_ID = 'mgr_id'
+FIELD_BKR_ID = 'bkr_id'
 
 # Fields for reading input
 FIELDS_INT = [FIELD_SIDE, FIELD_TRADE_VOL, FIELD_ORDER_VOL, FIELD_xvPX, FIELD_dvOC]
