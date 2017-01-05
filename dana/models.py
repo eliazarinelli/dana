@@ -29,7 +29,7 @@ class DayInfo(Base):
     p_close = Column(Float, nullable=False)
     p_high = Column(Float, nullable=False)
     p_low = Column(Float, nullable=False)
-    volatility = Column(Float, nullable=False)
+    volatility = Column(Float, nullable=True)
 
 
 class PeriodInfo(Base):

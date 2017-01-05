@@ -102,7 +102,7 @@ def _add_volatility(ld_input):
         try:
             trade[FIELD_VOLA] = (trade[FIELD_dpH] - trade[FIELD_dpL])/(trade[FIELD_dpC] - trade[FIELD_dpO])
         except ZeroDivisionError:
-            trade[FIELD_VOLA] = np.nan
+            trade[FIELD_VOLA] = None
 
     return ld_input
 
@@ -127,6 +127,7 @@ def _write_to_db(ld_input):
         session = Session()
 
         for order in ld_input:
+
             # check on consistency of the order volume and vwap
             if order[FIELD_ORDER_VOL] == order[FIELD_TRADE_VOL] \
                     and np.abs((order[FIELD_ORDER_PRC] - order[FIELD_VWAP])/order[FIELD_ORDER_PRC])<THRESHOLD_VWAP:
@@ -144,6 +145,32 @@ def _write_to_db(ld_input):
                     n_trades=order[ORDERS_NAME_MAP['n_trades']]
                 )
                 session.merge(new_order)
+
+                new_periodinfo = PeriodInfo(
+                    id=order[PERIODINFO_NAME_MAP['id']],
+                    v_market=order[PERIODINFO_NAME_MAP['v_market']],
+                    p_start=order[PERIODINFO_NAME_MAP['p_start']],
+                    p_end=order[PERIODINFO_NAME_MAP['p_end']],
+                    p_vwap=order[PERIODINFO_NAME_MAP['p_vwap']]
+                )
+                session.merge(new_periodinfo)
+
+            new_dayinfo = DayInfo(
+                symbol=order[DAYINFO_NAME_MAP['symbol']],
+                date=order[DAYINFO_NAME_MAP['date']],
+                v_market=order[DAYINFO_NAME_MAP['v_market']],
+                p_vwap=order[DAYINFO_NAME_MAP['p_vwap']],
+                p_open=order[DAYINFO_NAME_MAP['p_open']],
+                p_close=order[DAYINFO_NAME_MAP['p_close']],
+                p_high=order[DAYINFO_NAME_MAP['p_high']],
+                p_low=order[DAYINFO_NAME_MAP['p_low']],
+                volatility=order[DAYINFO_NAME_MAP['volatility']]
+            )
+            session.merge(new_dayinfo)
+
+
+
+
         session.commit()
 
 
@@ -169,9 +196,11 @@ if __name__ == "__main__":
     tmp_5 = _adjust_client(tmp_4)
 
     if BOOL_LOCAL_DUMP:
+        print('dumping file...')
         _dump_ld(tmp_5)
 
     if BOOL_DB_COMMIT:
+        print('writing to database...')
         _write_to_db(tmp_5)
 
     print('done')

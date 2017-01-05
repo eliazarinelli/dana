@@ -1,6 +1,6 @@
 from .userconfig import *
 
-from .models import Order, DayInfo, PeriodInfo
+from .models import Orders, DayInfo, PeriodInfo
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -16,7 +16,9 @@ class Dana():
 
 	def count_metaorders(self, symbol=None):
 		if symbol is None:
-			return self._session.query(Order.id).count()
+			return self._session.query(Orders.id).count()
 		else:
-			return self._session.query(Order.id).filter(Order.symbol==symbol).count()
+			return self._session.query(Orders.id).filter(Orders.symbol==symbol).count()
 
+	def return_all(self):
+		return self._session.query(Orders).all()

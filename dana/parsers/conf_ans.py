@@ -83,3 +83,23 @@ ORDERS_NAME_MAP = {
     'p_vwap': FIELD_ORDER_PRC,
     'n_trades': FIELD_TRADE_COUNT
 }
+
+DAYINFO_NAME_MAP = {
+    'symbol': FIELD_symbol,
+    'date': FIELD_DATE,
+    'v_market': FIELD_dvOC,
+    'p_vwap': FIELD_dpOC,
+    'p_open': FIELD_dpO,
+    'p_close': FIELD_dpC,
+    'p_high': FIELD_dpH,
+    'p_low': FIELD_dpL,
+    'volatility': FIELD_VOLA
+}
+
+PERIODINFO_NAME_MAP = {
+    'id': FIELD_HASH,
+    'v_market': FIELD_xvPX,
+    'p_start': FIELD_xpP,
+    'p_end': FIELD_xpX,
+    'p_vwap': FIELD_xpPX
+}
