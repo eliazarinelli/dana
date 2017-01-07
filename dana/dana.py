@@ -4,7 +4,8 @@ from .models import Orders, DayInfo, PeriodInfo
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
+from sqlalchemy import and_
+from sqlalchemy import func
 class Dana():
 
 	def __init__(self):
@@ -21,4 +22,7 @@ class Dana():
 			return self._session.query(Orders.id).filter(Orders.symbol==symbol).count()
 
 	def return_all(self):
-		return self._session.query(Orders).all()
+		return self._session.query(func.avg(Orders.date + DayInfo.v_market)).\
+			select_from(Orders).\
+			join(DayInfo, and_(Orders.symbol == DayInfo.symbol, Orders.date == DayInfo.date)).scalar()
+

@@ -7,7 +7,9 @@ import time
 import pickle
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.exc import IntegrityError
+
 
 import os
 import sys
@@ -17,6 +19,9 @@ from models import Base, Orders, DayInfo, PeriodInfo
 from userconfig import *
 
 from conf_ans import *
+
+DBSession = scoped_session(sessionmaker())
+engine = None
 
 def _import_dict(path_input):
 
@@ -89,11 +94,15 @@ def _add_date_time(ld_input):
 
 def _add_hash(ld_input):
 
+    dict_out = {}
+
     for trade in ld_input:
         # joining the fields in the key and generating the hash value
-        trade[FIELD_HASH] = hash(''.join([str(trade[k]) for k in FIELDS_KEY]))
+        hh = hash(''.join([str(trade[k]) for k in FIELDS_KEY]))
+        trade[FIELD_HASH] = hh
+        dict_out[hh] = trade
 
-    return ld_input
+    return list(dict_out.values())
 
 
 def _add_volatility(ld_input):
@@ -118,6 +127,58 @@ def _adjust_client(ld_input):
 
 def _dump_ld(ld_input):
     pickle.dump(ld_input, open(FILE_STAGE, "wb" ) )
+
+
+def _init_sqlalchemy():
+
+    global engine
+    engine = create_engine(ENGINE_URL, echo=False)
+    DBSession.remove()
+    DBSession.configure(bind=engine, autoflush=False, expire_on_commit=False)
+
+def _isolate_orders(ld_input):
+
+    ld_out = []
+
+    for order in ld_input:
+        new_entry = {
+            'id': order[ORDERS_NAME_MAP['id']],
+            'mgr_id': order[ORDERS_NAME_MAP['mgr_id']],
+            'bkr_id': order[ORDERS_NAME_MAP['bkr_id']],
+            'symbol': order[ORDERS_NAME_MAP['symbol']],
+            'side': order[ORDERS_NAME_MAP['side']],
+            'date': order[ORDERS_NAME_MAP['date']],
+            'start_min': order[ORDERS_NAME_MAP['start_min']],
+            'end_min': order[ORDERS_NAME_MAP['end_min']],
+            'v_order': order[ORDERS_NAME_MAP['v_order']],
+            'p_vwap': order[ORDERS_NAME_MAP['p_vwap']],
+            'n_trades': order[ORDERS_NAME_MAP['n_trades']]
+        }
+
+        ld_out.append(new_entry)
+    return ld_out
+
+
+def _write_order_to_db(ld_input):
+
+    _init_sqlalchemy()
+
+    ld_orders = _isolate_orders(ld_input)
+
+    t0 = time.time()
+
+    try:
+        engine.execute(Orders.__table__.insert(), ld_orders)
+        print(
+            "SQLAlchemy Core: Total time for " + str(len(ld_orders)) +
+            " records " + str(time.time() - t0) + " secs")
+
+    except IntegrityError:
+        print('bho')
+
+
+
+
 
 
 def _write_to_db(ld_input):
@@ -184,28 +245,26 @@ if __name__ == "__main__":
     tmp_1 = _extract_orders(tmp_0)
 
     print('adding date and min...')
-    tmp_2 = _add_date_time(tmp_1)
-
-    print('adding hash...')
-    tmp_3 = _add_hash(tmp_2)
+    _add_date_time(tmp_1)
 
     print('adding volatility...')
-    tmp_4 = _add_volatility(tmp_3)
+    _add_volatility(tmp_1)
 
     print('adjusting clientcode...')
-    tmp_5 = _adjust_client(tmp_4)
+    _adjust_client(tmp_1)
+
+    print('adding hash...')
+    tmp_2 = _add_hash(tmp_1)
+
 
     if BOOL_LOCAL_DUMP:
         print('dumping file...')
-        _dump_ld(tmp_5)
+        _dump_ld(tmp_2)
 
     if BOOL_DB_COMMIT:
         print('writing to database...')
-        _write_to_db(tmp_5)
-
-    print('done')
-    t_1 = time.time()
+        _write_order_to_db(tmp_2)
 
     print('Total time (secs):')
-    print(t_1-t_0)
+    print(time.time()-t_0)
 

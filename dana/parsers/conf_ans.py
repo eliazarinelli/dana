@@ -1,6 +1,6 @@
 
 # Set to true if you want to locally dump the output
-BOOL_LOCAL_DUMP = True
+BOOL_LOCAL_DUMP = False
 
 # Set to true if you want to commit to the database the output
 BOOL_DB_COMMIT = True
