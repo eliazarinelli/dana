@@ -183,3 +183,18 @@ FIELDS_SUM_GBY = [FIELD_trade_volume, FIELD_trade_vp]
 FIELD_count = 'count_trades'
 FIELD_order_volume_inf = 'order_volume_inf'
 FIELD_order_price_inf = 'order_price_inf'
+
+ORDERS_NAME_MAP = {
+    'mgr': FIELD_mgr,
+    'bkr': FIELD_bkr,
+    'symbol': FIELD_symbol,
+    'side': FIELD_side,
+    'date_exec': FIELD_date_julian,
+    'time_start': FIELD_time_start,
+    'time_end': FIELD_time_end,
+    'volume': FIELD_order_volume,
+    'price': FIELD_order_price,
+    'n_trades': FIELD_count
+}
+
+THRESHOLD_VWAP = 0.0001
