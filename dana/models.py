@@ -6,15 +6,15 @@ Base = declarative_base()
 
 class Orders(Base):
     __tablename__ = 'orders'
-    mgr_id = Column(String(250), primary_key=True)
-    bkr_id = Column(String(250), primary_key=True)
+    mgr = Column(String(250), primary_key=True)
+    bkr = Column(String(250), primary_key=True)
     symbol = Column(String(250), primary_key=True)
     side = Column(SmallInteger, primary_key=True, autoincrement=False)
-    date = Column(Integer, primary_key=True, autoincrement=False)
-    start_min = Column(SmallInteger, primary_key=True, autoincrement=False)
-    end_min = Column(SmallInteger, primary_key=True, autoincrement=False)
-    v_order = Column(Integer, primary_key=True, autoincrement=False)
-    p_vwap = Column(Float, primary_key=True)
+    date_exec = Column(Integer, primary_key=True, autoincrement=False)
+    time_start = Column(SmallInteger, primary_key=True, autoincrement=False)
+    time_end = Column(SmallInteger, primary_key=True, autoincrement=False)
+    volume = Column(Integer, primary_key=True, autoincrement=False)
+    price = Column(Float, primary_key=True)
     n_trades = Column(SmallInteger, nullable=False)
 
 
