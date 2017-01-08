@@ -3,6 +3,13 @@ __author__ = 'eliazarinelli'
 import datetime
 import pandas as pd
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.exc import IntegrityError
+
+DBSession = scoped_session(sessionmaker())
+engine = None
+
 def _trade_extract_dict(dict_in, name_mapping):
 
     """
@@ -76,15 +83,38 @@ def _trade_adjust_client(trade_in, field_client, field_add_in, field_add_out):
 
 
 def _order_calculate_vwap(order_in, field_volume_in, field_price_in, field_volume_out, field_price_out):
+
+    """ Calculate the price of an order and remove the dict the input fields """
+
+    # report the volume
     order_in[field_volume_out] = order_in[field_volume_in]
+
+    # calculate the price
     order_in[field_price_out] = order_in[field_price_in] / float(order_in[field_volume_in])
+
+    # remove the old volume
     del order_in[field_volume_in]
+
+    # remove the old price
     del order_in[field_price_in]
 
-def _extract_orders(dict_input, fields_key_gby, fields_sum_gby, field_count):
 
+def _extract_orders(trade_list_in, fields_key_gby, fields_sum_gby, field_count):
+    """
+    Group the trades with same key and generate the orders
+
+    Group-by the trades with same key, each group correspond to an order.
+    Sum the volume and the volume*price fields of each group.
+    Count the number of records in each group (trades in an order).
+
+    :param trade_list_in: list, each entry is dict and correspond to a trade
+    :param fields_key_gby: list, field of the key
+    :param fields_sum_gby: list, field of the sum
+    :param field_count: str, name of the counting field
+    :return: list, each entry is a dict and correspond to an order
+    """
     # create dataframe
-    df = pd.DataFrame(dict_input)
+    df = pd.DataFrame(trade_list_in)
 
     # FIRST AGGREGATION
     df_gby_1 = df.groupby(fields_key_gby)
@@ -108,16 +138,67 @@ def _extract_orders(dict_input, fields_key_gby, fields_sum_gby, field_count):
     return df_grouped_1.to_dict(orient='records')
 
 
+def _order_remove_duplicates(order_list, fields_hash):
+
+    """ Remove the duplicates of an order by checking the hash of the key """
+
+    order_dict = {}
+
+    for order_in in order_list:
+        hh = hash('_'.join([str(order_in[k]) for k in fields_hash]))
+
+        # put the order in the dict with as key the hash of the key fields
+        # if a key is already in the dict the entry is over-written
+        # this ensures only one order per key
+        order_dict[hh] = order_in
+
+    return list(order_dict.values())
+
+
+def _order_consistency_check(order_list, field_volume, field_volume_inf,
+                             field_price, field_price_inf, name_dict, threshold):
+
+    """
+    Check if the price and volume of the inferred order are consistent
+    with the one reported.
+    """
+
+    order_list_out = []
+    for order in order_list:
+        if order[field_volume] == order[field_volume_inf] and \
+            abs(order[field_price] - order[field_price_inf])/order[field_price] < threshold:
+
+            new_order = {k: order[v] for k, v in name_dict.items()}
+            order_list_out.append(new_order)
+
+    return order_list_out
+
+
+def _init_sqlalchemy():
+
+    global engine
+    engine = create_engine(ENGINE_URL, echo=False)
+    DBSession.remove()
+    DBSession.configure(bind=engine, autoflush=False, expire_on_commit=False)
+
+
 if __name__ == '__main__':
 
     import gzip
     import csv
+    import time
 
     import os
     import sys
     sys.path.insert(0, os.path.abspath('../../'))
 
     from dana.parsers.conf_ans import *
+    from dana.models import Base, Orders
+    from dana.userconfig import ENGINE_URL
+
+    t_0 = time.time()
+
+    print('Reading trades...')
 
     trade_list = []
 
@@ -186,8 +267,39 @@ if __name__ == '__main__':
 
             trade_list.append(trade_out)
 
+    print('done in secs: ' + str(time.time() - t_0))
+
+    print('Extracting orders...')
+
+    t_0 = time.time()
+
     order_list = _extract_orders(trade_list, FIELDS_KEY_GBY, FIELDS_SUM_GBY, FIELD_count)
 
     for order in order_list:
-        _order_calculate_vwap(order, FIELD_trade_volume,
-                              FIELD_trade_vp, FIELD_order_volume_inf, FIELD_order_price_inf)
+        _order_calculate_vwap(order, FIELD_trade_volume, FIELD_trade_vp,
+                              FIELD_order_volume_inf, FIELD_order_price_inf)
+
+    order_list = _order_remove_duplicates(order_list, FIELDS_KEY_GBY)
+
+    order_list_check = _order_consistency_check(order_list, FIELD_order_volume, FIELD_order_volume_inf,
+                                          FIELD_order_price, FIELD_order_price_inf,
+                                          ORDERS_NAME_MAP, THRESHOLD_VWAP)
+
+    print('done in secs: ' + str(time.time() - t_0))
+
+    print('Extracting orders...')
+
+    t_0 = time.time()
+
+    _init_sqlalchemy()
+
+    try:
+        engine.execute(Orders.__table__.insert(), order_list_check)
+        print(
+            "SQLAlchemy Core: Total time for " + str(len(order_list_check)) +
+            " records " + str(time.time() - t_0) + " secs")
+
+    except IntegrityError:
+        print('At least one of the records that you are trying \n'
+              'to insert is already present in the database. \n'
+              'No new record written.')
