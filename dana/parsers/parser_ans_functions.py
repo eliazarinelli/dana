@@ -1,6 +1,7 @@
 __author__ = 'eliazarinelli'
 
 import datetime
+import pandas as pd
 
 def _trade_extract_dict(dict_in, name_mapping):
 
@@ -22,7 +23,6 @@ def _trade_extract_dict(dict_in, name_mapping):
     return dict_out
 
 
-
 def _trade_cast_int(trade_in, fields_int):
 
     """ Cast integer fields	"""
@@ -41,6 +41,8 @@ def _trade_cast_float(trade_in, fields_float):
 
 def _trade_extract_julian_date(trade_in, field_date_in, field_date_out):
 
+    """ Extract the julian date from a date in format yyyy-mm-dd hh:mm:ss """
+
     # datetime format of the placement time
     dt_trade = datetime.datetime.strptime(trade_in[field_date_in], '%Y-%m-%d %H:%M:%S')
 
@@ -50,6 +52,8 @@ def _trade_extract_julian_date(trade_in, field_date_in, field_date_out):
 
 def _trade_extract_min(trade_in, field_min_in, field_min_out):
 
+    """ Extract the minute from midnight from a date in format yyyy-mm-dd hh:mm:ss """
+
     # extract datetime format
     dt_trade = datetime.datetime.strptime(trade_in[field_min_in], '%Y-%m-%d %H:%M:%S')
 
@@ -57,60 +61,65 @@ def _trade_extract_min(trade_in, field_min_in, field_min_out):
     trade[field_min_out] = dt_trade.hour*60 + dt_trade.minute
 
 
+def _trade_add_vp(trade_in, field_volume, field_price, field_vp):
+
+    """ Calculate the field trade_volume*trade_price """
+
+    trade[field_vp] = float(trade[field_volume]) * trade[field_price]
+
+
+def _trade_adjust_client(trade_in, field_client, field_add_in, field_add_out):
+
+    """ Join client code with the mgr or bkr code """
+
+    trade_in[field_add_out] = '_'.join([trade_in[field_client], trade_in[field_add_in]])
+
+
+def _order_calculate_vwap(order_in, field_volume_in, field_price_in, field_volume_out, field_price_out):
+    order_in[field_volume_out] = order_in[field_volume_in]
+    order_in[field_price_out] = order_in[field_price_in] / float(order_in[field_volume_in])
+    del order_in[field_volume_in]
+    del order_in[field_price_in]
+
+def _extract_orders(dict_input, fields_key_gby, fields_sum_gby, field_count):
+
+    # create dataframe
+    df = pd.DataFrame(dict_input)
+
+    # FIRST AGGREGATION
+    df_gby_1 = df.groupby(fields_key_gby)
+
+    # sum volume and price*volume
+    df_tmp_1 = df_gby_1[fields_sum_gby].sum()
+
+    # count the number of trades
+    df_tmp_2 = df_gby_1[fields_sum_gby].count()
+    hh = [field_count] * len(fields_sum_gby)
+    df_tmp_2.columns = hh
+    df_tmp_2 = df_tmp_2[hh[0]]
+
+    # concatenate the output
+    df_tmp_3 = pd.concat([df_tmp_1, df_tmp_2], axis=1)
+
+    # resetting the index of the grouped dataframe
+    # this operation transforms the index of a dataframe into a field
+    df_grouped_1 = df_tmp_3.reset_index()
+
+    return df_grouped_1.to_dict(orient='records')
+
+
 if __name__ == '__main__':
 
     import gzip
     import csv
 
-    # Name of the input file
-    FILE_RAW = '/Users/eliazarinelli/db/raw/ciao.txt.gz'
+    import os
+    import sys
+    sys.path.insert(0, os.path.abspath('../../'))
 
-    FIELD_ans_clientcode = 'clientcode'
-    FIELD_ans_clientmgrcode = 'clientmgrcode'
-    FIELD_ans_clientbkrcode = 'clientbkrcode'
-    FIELD_ans_symbol = 'symbol'
-    FIELD_ans_side = 'side'
-    FIELD_ans_trade_volume = 'volume'
-    FIELD_ans_trade_price = 'Price'
-    FIELD_ans_order_volume = 'xv'
-    FIELD_ans_order_price = 'xp'
-    FIELD_ans_datetime_start = 'xdtP'
-    FIELD_ans_datetime_end = 'xdtX'
+    from dana.parsers.conf_ans import *
 
-    FIELD_clientcode = 'client'
-    FIELD_clientmgrcode = 'mgr'
-    FIELD_clientbkrcode = 'bkr'
-    FIELD_symbol = 'symbol'
-    FIELD_side = 'side'
-    FIELD_trade_volume = 'trade_volume'
-    FIELD_trade_price = 'trade_price'
-    FIELD_order_volume = 'order_volume'
-    FIELD_order_price = 'order_price'
-    FIELD_datetime_start = 'datetime_start'
-    FIELD_datetime_end = 'datetime_end'
-
-    NAME_MAPPING_ANS = {
-        FIELD_clientcode: FIELD_ans_clientcode,
-        FIELD_clientmgrcode: FIELD_ans_clientmgrcode,
-        FIELD_clientbkrcode: FIELD_ans_clientbkrcode,
-        FIELD_symbol: FIELD_ans_symbol,
-        FIELD_side: FIELD_ans_side,
-        FIELD_trade_volume: FIELD_ans_trade_volume,
-        FIELD_trade_price: FIELD_ans_trade_price,
-        FIELD_order_volume: FIELD_ans_order_volume,
-        FIELD_order_price: FIELD_ans_order_price,
-        FIELD_datetime_start: FIELD_ans_datetime_start,
-        FIELD_datetime_end: FIELD_ans_datetime_end
-    }
-
-    FIELD_int = [FIELD_side, FIELD_trade_volume, FIELD_order_volume]
-    FIELD_float = [FIELD_trade_price, FIELD_order_price]
-
-    FIELD_date_julian = 'date'
-    FIELD_time_start = 'time_start'
-    FIELD_time_end = 'time_end'
-
-    list_output = []
+    trade_list = []
 
     with gzip.open(FILE_RAW, 'rt') as file_gz:
 
@@ -153,3 +162,32 @@ if __name__ == '__main__':
             except:
                 print('Error extracting minute start: skipping trade')
                 continue
+
+            try:
+                _trade_add_vp(trade, FIELD_trade_price, FIELD_trade_volume, FIELD_trade_vp)
+            except:
+                print('Error calculating volume*price: skipping trade')
+                continue
+
+            try:
+                _trade_adjust_client(trade, FIELD_clientcode, FIELD_clientmgrcode, FIELD_mgr)
+            except:
+                print('Error adjusting client code')
+                continue
+
+            try:
+                _trade_adjust_client(trade, FIELD_clientcode, FIELD_clientbkrcode, FIELD_bkr)
+            except:
+                print('Error adjusting client code')
+                continue
+
+
+            trade_out = {k: trade[k] for k in FIELDS_to_keep}
+
+            trade_list.append(trade_out)
+
+    order_list = _extract_orders(trade_list, FIELDS_KEY_GBY, FIELDS_SUM_GBY, FIELD_count)
+
+    for order in order_list:
+        _order_calculate_vwap(order, FIELD_trade_volume,
+                              FIELD_trade_vp, FIELD_order_volume_inf, FIELD_order_price_inf)
