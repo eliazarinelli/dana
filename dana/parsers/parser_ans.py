@@ -10,7 +10,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import IntegrityError
 
-
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
@@ -25,6 +24,19 @@ engine = None
 
 def _import_dict(path_input):
 
+    """
+    Read the row file in .gz format and extract the fields to keep
+
+    Input:
+    ------
+    path_input: str, the absolute path of the input .gz file
+
+    Output:
+    -------
+    list_output: list of dicts, each dict correspond to a trade
+        (a line of the input file)
+    """
+
     list_output = []
 
     with gzip.open(path_input, 'rt') as file_gz:
@@ -33,10 +45,20 @@ def _import_dict(path_input):
         reader = csv.DictReader(file_gz, delimiter='|')
 
         for row in reader:
+
+            # check that all the fields to extract are non-empty
             if all([row[k] for k in FIELDS_INT + FIELDS_STR + FIELDS_FLOAT]):
+
+                # read the int fields cast to int
                 dict_int = {k: int(row[k]) for k in FIELDS_INT}
+
+                # read the string fields cast to string
                 dict_str = {k: str(row[k]) for k in FIELDS_STR}
+
+                # read the float fields cast to float
                 dict_float = {k: float(row[k]) for k in FIELDS_FLOAT}
+
+                # join the three dicts in a single dictionary and add to the output
                 list_output.append({FIELD_TRADE_COUNT: 1, **dict_int, **dict_str, **dict_float})
 
     return list_output
@@ -142,7 +164,6 @@ def _isolate_orders(ld_input):
 
     for order in ld_input:
         new_entry = {
-            'id': order[ORDERS_NAME_MAP['id']],
             'mgr_id': order[ORDERS_NAME_MAP['mgr_id']],
             'bkr_id': order[ORDERS_NAME_MAP['bkr_id']],
             'symbol': order[ORDERS_NAME_MAP['symbol']],
