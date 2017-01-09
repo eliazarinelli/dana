@@ -193,7 +193,7 @@ if __name__ == '__main__':
     import sys
     sys.path.insert(0, os.path.abspath('../../'))
 
-    from dana.parsers.conf_ans import *
+    from dana.parsers.ans_orders_conf import *
     from dana.models import Base, Orders
     from dana.userconfig import ENGINE_URL
 
