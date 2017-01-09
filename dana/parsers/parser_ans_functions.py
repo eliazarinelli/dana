@@ -124,7 +124,7 @@ def _extract_orders(trade_list_in, fields_key_gby, fields_sum_gby, field_count):
 
     # count the number of trades
     df_tmp_2 = df_gby_1[fields_sum_gby].count()
-    hh = [field_count] * len(fields_sum_gby)
+    hh = [field_count] + [field_count + str(i) for i in range(len(fields_sum_gby)-1)]
     df_tmp_2.columns = hh
     df_tmp_2 = df_tmp_2[hh[0]]
 
