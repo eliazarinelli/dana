@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 DBSession = scoped_session(sessionmaker())
 engine = None
 
+
 def _trade_extract_dict(dict_in, name_mapping):
 
     """
