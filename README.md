@@ -1,21 +1,25 @@
 # dana - Data Analysis Projects
 
-#### Setup
-
-Install [MySQL](http://dev.mysql.com/).
+## Basic setup
 
 Install [Anaconda](http://conda.pydata.org/docs/index.html).
 
-Create a local environment with python 3 from Anaconda distribution:
+Create a local environment with python 3 from Anaconda distribution.
+The command below will create a local environment named `dana_env`:
 
 ```
-conda create -n env_name python=3 anaconda
+conda create -n dana_env
 ```
 
-Activate environment:
+Activate `dana_env` environment:
 ```
-conda activate env_name
+source activate dana_env
 ```
+
+
+#### Advanced setup
+
+Install [MySQL](http://dev.mysql.com/).
 
 Install `pymysql` in the local environment:
 ```
@@ -29,4 +33,4 @@ USER_PWD = 'your_user_pwd'
 HOST_NAME = 'local_or_remote_host'
 DB_NAME = 'database_name'
 ```
-This file shoud not be added to git to avoid sharing your credentials. This file is included in `.gitignore`.
+This file should not be added to git to avoid sharing your credentials.
