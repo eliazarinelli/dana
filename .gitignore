@@ -6,3 +6,4 @@ notebooks/.ipynb_checkpoints/
 notebooks/__pycache__/
 dana/__pycache__/
 parsers/__pycache__/
+db/
