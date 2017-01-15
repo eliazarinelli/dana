@@ -1,7 +1,8 @@
 
 # Name of the input file
 #FILE_RAW = '/Users/eliazarinelli/db/raw/ciao.txt.gz'
-FILE_RAW = '/Users/eliazarinelli/db/raw/tmp_07_01.txt.gz'
+#FILE_RAW = '/Users/eliazarinelli/db/raw/tmp_07_01.txt.gz'
+FILE_RAW = '/Users/eliazarinelli/db/raw/Trades200701.txt.gz'
 
 # fields from ans
 FIELD_ans_clientcode = 'clientcode'

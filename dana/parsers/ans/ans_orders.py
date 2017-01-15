@@ -73,7 +73,7 @@ def _trade_add_vp(trade_in, field_volume, field_price, field_vp):
 
     """ Calculate the field trade_volume*trade_price """
 
-    trade[field_vp] = float(trade[field_volume]) * trade[field_price]
+    trade_in[field_vp] = float(trade_in[field_volume]) * trade_in[field_price]
 
 
 def _trade_adjust_client(trade_in, field_client, field_add_in, field_add_out):
@@ -208,7 +208,12 @@ if __name__ == '__main__':
         # reading the input file line by line
         reader = csv.DictReader(file_gz, delimiter='|')
 
+        i=0
         for row in reader:
+            i += 1
+            if i%10000==0:
+                print(i)
+
             trade = _trade_extract_dict(row, NAME_MAPPING_ANS)
 
             if not all(trade.values()):
@@ -288,7 +293,7 @@ if __name__ == '__main__':
 
     print('done in secs: ' + str(time.time() - t_0))
 
-    print('Extracting orders...')
+    print('Storing orders into db...')
 
     t_0 = time.time()
 
