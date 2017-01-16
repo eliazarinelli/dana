@@ -7,18 +7,29 @@ import pickle
 
 def _generate_orders(n_orders=2):
 
+    """ Generate a list of random orders """
+
+    # initialisation of the output
     order_list = []
 
+    # available symbols
     symbol_list = ['AAPL', 'MSFT', 'GOOG']
+
+    # available dates
     date_list = list(range(735599, 735599+5))
 
-    t_max = 100
+    # open and close of the market (minutes from midnight)
+    t_min = 570
+    t_max = 1050
+
+    # maximum volume of an order
     v_max = 10000
+
     n_max = 10
 
     for i in range(n_orders):
 
-        t_start = np.random.randint(0, t_max)
+        t_start = np.random.randint(t_min, t_max)
         t_end = np.random.randint(t_start, t_max)
 
         order = {
@@ -41,19 +52,24 @@ def _generate_orders(n_orders=2):
 
 def _store_orders(order_list, path_stage):
 
+    """ Store the orders into a pickle file """
+
+    # create the folder where to store the file
     if not os.path.exists(path_stage):
         os.makedirs(path_stage)
 
+    # dump the file
     pickle.dump(order_list, open('/'.join([path_stage, 'example.p']), "wb"))
 
 
 if __name__ == '__main__':
 
+    # create the orders
     n_orders = 2**10
-    path_stage = os.path.relpath('../../db/stage')
-
     list_orders = _generate_orders(n_orders)
 
+    # store the orders
+    path_stage = os.path.relpath('../../db/stage')
     _store_orders(list_orders, path_stage)
 
     print('Generated ' + str(n_orders) + ' orders and stored in:')
