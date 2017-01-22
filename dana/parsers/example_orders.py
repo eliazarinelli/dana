@@ -50,7 +50,7 @@ def _generate_orders(n_orders=2):
     return order_list
 
 
-def _store_orders(order_list, path_stage):
+def _store_orders(order_list, path_stage, name_pickle):
 
     """ Store the orders into a pickle file """
 
@@ -70,7 +70,8 @@ if __name__ == '__main__':
 
     # store the orders
     path_stage = os.path.relpath('../../db/stage')
-    _store_orders(list_orders, path_stage)
+    name_pickle = 'example.p'
+    _store_orders(list_orders, path_stage, name_pickle)
 
     print('Generated ' + str(n_orders) + ' orders and stored in:')
     print('/'.join([path_stage, 'example.p']))
