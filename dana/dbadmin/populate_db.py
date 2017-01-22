@@ -3,6 +3,7 @@ __author__ = 'eliazarinelli'
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('..'))
 
 from dana.models import Base, Orders
 
