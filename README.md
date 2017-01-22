@@ -17,18 +17,7 @@ source activate dana_env
 
 ## Quickstart
 
-Create some random orders executing
-```
-python example_orders.py
-```
-from `dana/parsers`.
-
-Store the orders into an sqlite database running
-```
-populate_db.py
-```
-form `dana/dbadmin`.
-
+Open the notebook `notebooks/quickstart.ipynb` and follow the instructions.
 
 
 
