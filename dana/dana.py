@@ -26,6 +26,11 @@ class Dana(object):
 
     def get_day(self, symbol=None, date=None):
 
+        """
+        Return the orders executed on the input date and symbol.
+        The output is a list of dicts, each dict contains the data of an oders.
+        """
+
         output = []
 
         record_list = self._session.query(Orders).\

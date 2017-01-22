@@ -1,11 +1,10 @@
 # dana - Data Analysis Projects
 
-## Basic setup
+## Setup
 
 Install [Anaconda](http://conda.pydata.org/docs/index.html).
 
-Create a local environment with python 3 from Anaconda distribution.
-The command below will create a local environment named `dana_env`:
+Create a local environment with `conda`. The command below will create a local environment named `dana_env`:
 
 ```
 conda create -n dana_env
@@ -16,8 +15,24 @@ Activate `dana_env` environment:
 source activate dana_env
 ```
 
+## Quickstart
 
-#### Advanced setup
+Create some random orders executing
+```
+python example_orders.py
+```
+from `dana/parsers`.
+
+Store the orders into an sqlite database running
+```
+populate_db.py
+```
+form `dana/dbadmin`.
+
+
+
+
+## Mysql setup
 
 Install [MySQL](http://dev.mysql.com/).
 
