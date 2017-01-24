@@ -94,15 +94,15 @@ def update_data():
     p_orders.y_range.start = min(y_start)
     p_orders.y_range.end = max(y_end)
 
-    p_orders.title.text = 'Intraday orders - symbol: ' + w_select_symbol.value + '  date: ' + str(w_datepickler.value)[0:10]
+    p_orders.title.text = 'Intraday orders - symbol: ' + w_select_symbol.value +\
+                          '  date: ' + str(w_datepickler.value)[0:10]
 
 # associate the function to the button
 w_button.on_click(update_data)
 
 
 # Set up layouts and add to document
-inputs = widgetbox(children=[w_text_db, w_select_symbol, w_datepickler, w_button],
-                   sizing_mode='scale_width')
+inputs = widgetbox(children=[w_text_db, w_select_symbol, w_datepickler, w_button], width=300)
 
 curdoc().add_root(row(p_orders, inputs))
 curdoc().title = "Intraday"
