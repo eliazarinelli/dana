@@ -54,4 +54,19 @@ class Dana(object):
 
         return output
 
+    def get_symbols(self):
+
+        """ List of the distinct symbols in the db """
+
+        tmp = [i[0] for i in self._session.query(Orders.symbol).distinct()]
+        tmp.sort()
+        return tmp
+
+    def get_dates(self):
+
+        """ List of the distinct dates in the db """
+
+        tmp = [i[0] for i in self._session.query(Orders.date_exec).distinct()]
+        tmp.sort()
+        return tmp
 
