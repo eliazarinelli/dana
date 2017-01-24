@@ -15,11 +15,23 @@ Activate `dana_env` environment:
 source activate dana_env
 ```
 
+Intall [Bokeh](http://bokeh.pydata.org/en/latest/) in the local environment:
+```
+conda install bokeh
+```
+
 ## Quickstart
 
 Open the notebook `notebooks/quickstart.ipynb` and follow the instructions.
 
+## Dataviz
 
+Go in the `apps` folder and run
+```
+bokeh serve intraday.py
+```
+
+Then from your browser go to `http://localhost:5006/intraday`.
 
 ## Mysql setup
 
