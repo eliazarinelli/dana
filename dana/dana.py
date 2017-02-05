@@ -7,6 +7,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import and_
 from sqlalchemy import func
 
+from pymongo import MongoClient
+
+N_MINS_DAY = 24*60
 
 class Dana(object):
 
@@ -70,3 +73,39 @@ class Dana(object):
         tmp.sort()
         return tmp
 
+
+class Hts(object):
+
+    def __init__(self, engine_url, database_name):
+
+        self.client = MongoClient(engine_url)
+        self.db = self.client[database_name]
+
+    def get_ts(self, symbol, date, start=0, end=N_MINS_DAY):
+
+        c_symbol = self.db[symbol]
+
+        cc = c_symbol.find({'date': date, 'mins': {'$gte': start, '$lt': end}})
+
+        output = {}
+        for record in cc:
+            output[record['mins']] = {
+                'price': record['price'],
+                'volume': record['volume']
+            }
+        return output
+
+    def get_candle(self, symbol, date, start=0, end=N_MINS_DAY):
+
+        ts = self.get_ts(symbol, date, start, end)
+
+        output = {
+            'open': ts[min(ts.keys())]['price'],
+            'high': max([i['price'] for i in ts.values()]),
+            'low': min([i['price'] for i in ts.values()]),
+            'close': ts[max(ts.keys())]['price'],
+            'volume': sum([i['volume'] for i in ts.values()]),
+            'vwap': sum([i['volume']*i['price'] for i in ts.values()])/sum([i['volume'] for i in ts.values()])
+        }
+
+        return output
