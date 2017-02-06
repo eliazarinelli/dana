@@ -18,23 +18,15 @@ class Orders(Base):
     n_trades = Column(SmallInteger, nullable=False)
 
 
-class DayInfo(Base):
+class Candle(Base):
     __tablename__ = 'dayinfo'
     symbol = Column(String(250), primary_key=True)
-    date = Column(String(250), primary_key=True)
-    v_market = Column(Integer, nullable=False)
-    p_vwap = Column(Float, nullable=False)
+    date = Column(Integer, primary_key=True, autoincrement=False)
+    time_start = Column(SmallInteger, primary_key=True, autoincrement=False)
+    time_end = Column(SmallInteger, primary_key=True, autoincrement=False)
     p_open = Column(Float, nullable=False)
-    p_close = Column(Float, nullable=False)
     p_high = Column(Float, nullable=False)
     p_low = Column(Float, nullable=False)
-    volatility = Column(Float, nullable=True)
-
-
-class PeriodInfo(Base):
-    __tablename__ = 'periodinfo'
-    id = Column(BigInteger, primary_key=True)
-    v_market = Column(Integer, nullable=False)
-    p_start = Column(Float, nullable=False)
-    p_end = Column(Float, nullable=False)
+    p_close = Column(Float, nullable=False)
     p_vwap = Column(Float, nullable=False)
+    v_market = Column(Integer, nullable=False)
