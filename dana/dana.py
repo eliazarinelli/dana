@@ -73,6 +73,9 @@ class Dana(object):
         return tmp
 
 TS_FIELDS = set(['date', 'mins', 'price', 'volume'])
+ORDERS_FIELDS = set(['mgr', 'bkr', 'symbol', 'side', 'date',
+                     'min_start', 'min_end', 'volume', 'price', 'ntrades'])
+
 
 class Hts(object):
 
@@ -121,3 +124,27 @@ class Hts(object):
         }
         return output
 
+    def drop_orders(self):
+
+        self._client.drop_database(self._db_orders_name)
+
+    def insert_orders(self, orders_in):
+
+        if set(orders_in[0].keys()) != ORDERS_FIELDS:
+            raise ValueError('Wrong format of input in orders: dict keys should be: ' + ', '.join(ORDERS_FIELDS))
+
+        c_orders = self._db_orders.get_collection('orders')
+        c_orders.insert_many(orders_in)
+
+    def get_orders(self, symbol, date, start_min=0, start_max=N_MINS_DAY, end_min=0, end_max=N_MINS_DAY):
+
+        c_orders = self._db_orders['orders']
+
+        cc = c_orders.find({'date': date,
+                            'symbol': symbol,
+                            'min_start': {'$gte': start_min, '$lte': start_max},
+                            'min_end': {'$gte': end_min, '$lte': end_max},
+                            },
+                           {"_id": 0})
+        output = [i for i in cc]
+        return output
