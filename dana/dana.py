@@ -1,7 +1,6 @@
 from .userconfig import *
 
-from .models import Orders, DayInfo, PeriodInfo
-
+from .models import Orders
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import and_
@@ -73,26 +72,39 @@ class Dana(object):
         tmp.sort()
         return tmp
 
+TS_FIELDS = set(['date', 'mins', 'price', 'volume'])
 
 class Hts(object):
 
-    def __init__(self, engine_url, database_name):
+    def __init__(self, engine_url, db_ts_name, db_orders_name):
 
-        self.client = MongoClient(engine_url)
-        self.db = self.client[database_name]
+        self._db_ts_name = db_ts_name
+        self._db_orders_name = db_orders_name
+        self._client = MongoClient(engine_url)
+        self._db_ts = self._client[db_ts_name]
+        self._db_orders = self._client[db_orders_name]
+
+    def drop_ts(self, symbol=None):
+
+        if symbol is None:
+            self._client.drop_database(self._db_ts_name)
+        else:
+            self._db_ts.drop_collection(symbol)
+
+    def insert_ts(self, symbol, ts):
+
+        if set(ts[0].keys()) != TS_FIELDS:
+            raise ValueError('Wrong format of input in ts: dict keys should be: ' + ', '.join(TS_FIELDS))
+
+        c_symbol = self._db_ts.get_collection(symbol)
+        c_symbol.insert_many(ts)
 
     def get_ts(self, symbol, date, start=0, end=N_MINS_DAY):
 
-        c_symbol = self.db[symbol]
+        c_symbol = self._db_ts[symbol]
 
-        cc = c_symbol.find({'date': date, 'mins': {'$gte': start, '$lt': end}})
-
-        output = {}
-        for record in cc:
-            output[record['mins']] = {
-                'price': record['price'],
-                'volume': record['volume']
-            }
+        cc = c_symbol.find({'date': date, 'mins': {'$gte': start, '$lt': end}}, {"_id": 0}).sort([('mins', 1)])
+        output = [i for i in cc]
         return output
 
     def get_candle(self, symbol, date, start=0, end=N_MINS_DAY):
@@ -100,12 +112,12 @@ class Hts(object):
         ts = self.get_ts(symbol, date, start, end)
 
         output = {
-            'open': ts[min(ts.keys())]['price'],
-            'high': max([i['price'] for i in ts.values()]),
-            'low': min([i['price'] for i in ts.values()]),
-            'close': ts[max(ts.keys())]['price'],
-            'volume': sum([i['volume'] for i in ts.values()]),
-            'vwap': sum([i['volume']*i['price'] for i in ts.values()])/sum([i['volume'] for i in ts.values()])
+            'open': ts[0]['price'],
+            'high': max([i['price'] for i in ts]),
+            'low': min([i['price'] for i in ts]),
+            'close': ts[-1]['price'],
+            'volume': sum([i['volume'] for i in ts]),
+            'vwap': sum([i['volume']*i['price'] for i in ts])/sum([i['volume'] for i in ts])
         }
-
         return output
+
