@@ -91,6 +91,14 @@ class Hts(object):
 
     def drop_ts(self, symbol=None):
 
+        """
+        Drop the ts database
+
+        Input:
+        -----
+        symbol: string, if provided drop only the associated collection
+        """
+
         if symbol is None:
             self._client.drop_database(self._db_ts_name)
         else:
@@ -98,29 +106,50 @@ class Hts(object):
 
     def insert_ts(self, symbol, ts):
 
+        """
+        Insert a time series in the symbol collection
+
+        Input:
+        ------
+        symbol: string, the collection
+        ts: dict, the time series
+
+        """
+
         if set(ts[0].keys()) != TS_FIELDS:
             raise ValueError('Wrong format of input in ts: dict keys should be: ' + ', '.join(TS_FIELDS))
 
-        c_symbol = self._db_ts.get_collection(symbol)
-        c_symbol.insert_many(ts)
+        collection_symbol = self._db_ts.get_collection(symbol)
+        collection_symbol.insert_many(ts)
 
-    def get_ts(self, symbol, date, start=0, end=N_MINS_DAY):
+    def get_ts(self, symbol, date, min_start=0, min_end=N_MINS_DAY):
 
-        c_symbol = self._db_ts[symbol]
+        """ Get the time series corresponding to a symbol and date """
 
-        cc = c_symbol.find({'date': date, 'mins': {'$gte': start, '$lt': end}},
-                           {"_id": 0}).sort([('mins', 1)])
-        output = [i for i in cc]
-        return output
+        # get the collection corresponding to the symbol
+        collection_symbol = self._db_ts.get_collection(symbol)
 
-    def get_candle(self, symbol, date, start=0, end=N_MINS_DAY):
+        # get the cursor filtering on the date, min_start and min_end
+        # sort by the minutes
+        cc = collection_symbol.find(
+            {'date': date,
+             'mins': {'$gte': min_start, '$lt': min_end}},
+            {"_id": 0}).sort([('mins', 1)])
 
-        ts = self.get_ts(symbol, date, start, end)
+        return list(cc)
 
+    def get_candle(self, symbol, date, min_start=0, min_end=N_MINS_DAY):
+
+        """ Get the candle corresponding to a symbol and date """
+
+        # get the time series
+        ts = self.get_ts(symbol, date, min_start, min_end)
+
+        # extract the candle
         if len(ts) == 0:
             return {}
         else:
-            output = {
+            candle = {
                 'open': ts[0]['price'],
                 'high': max([i['price'] for i in ts]),
                 'low': min([i['price'] for i in ts]),
@@ -128,51 +157,72 @@ class Hts(object):
                 'volume': sum([i['volume'] for i in ts]),
                 'vwap': sum([i['volume']*i['price'] for i in ts])/sum([i['volume'] for i in ts])
             }
-            return output
+            return candle
 
     def drop_orders(self):
 
+        """ Drop the orders database """
+
         self._client.drop_database(self._db_orders_name)
 
-    def insert_orders(self, orders_in):
+    def insert_orders(self, orders):
+
+        """ Insert orders in the orders db """
 
         if set(orders_in[0].keys()) != ORDERS_FIELDS:
             raise ValueError('Wrong format of input in orders: dict keys should be: ' + ', '.join(ORDERS_FIELDS))
 
-        c_orders = self._db_orders.get_collection('orders')
-        c_orders.insert_many(orders_in)
+        # get the orders collection
+        collection_orders = self._db_orders.get_collection('orders')
+
+        # insert input orders
+        collection_orders.insert_many(orders)
 
     def get_orders(self, symbol, date, start_min=0, start_max=N_MINS_DAY, end_min=0, end_max=N_MINS_DAY):
 
-        c_orders = self._db_orders['orders']
+        """ Get orders corresponding to symbol and date """
 
-        cc = c_orders.find({'date': date,
-                            'symbol': symbol,
-                            'min_start': {'$gte': start_min, '$lte': start_max},
-                            'min_end': {'$gte': end_min, '$lte': end_max},
-                            },
-                           {"_id": 0})
-        output = [i for i in cc]
-        return output
+        # get the collection of orders
+        collection_orders = self._db_orders['orders']
 
-    def populate_orders_info(self, symbol, date):
+        # filtering on the date and symbol
+        # filtering on min_start and min_end
+        # do not return id
+        cc = collection_orders.find({'date': date,
+                                     'symbol': symbol,
+                                     'min_start': {'$gte': start_min, '$lte': start_max},
+                                     'min_end': {'$gte': end_min, '$lte': end_max},
+                                     },
+                                    {"_id": 0})
+        return list(cc)
 
+    def assign_candle_orders(self, symbol, date):
+
+        """ Assign and store in the bd for each order corresponding
+        to symbol and date the day and period candle """
+
+        # get the day_candle
         candle_day = self.get_candle(symbol=symbol, date=date)
 
-        coll_orders = self._db_orders['orders']
+        # get the collection of the orders
+        collection_orders = self._db_orders['orders']
 
-        coll_orders.update_many(
+        # set the day_candle to all the orders corresponding to symbol and date
+        collection_orders.update_many(
             {'symbol': symbol, 'date': date},
             {'$set': {'candle_day': candle_day}}
         )
 
-        cursor_orders = coll_orders.find(
+        # get the cursor of the order corresponding to symbol and date
+        cursor_orders = collection_orders.find(
             {'date': date,
-             'symbol': symbol}, {'_id': 1, 'min_start': 1, 'min_end': 1})
+             'symbol': symbol},
+            {'_id': 1, 'min_start': 1, 'min_end': 1})
 
+        # retrieve and set the period_candle to each order
         for order in cursor_orders:
-            candle_period = self.get_candle(symbol, date, start=order['min_start'], end=order['min_end'])
-            coll_orders.update_one(
+            candle_period = self.get_candle(symbol, date, min_start=order['min_start'], min_end=order['min_end'])
+            collection_orders.update_one(
                 {'_id': order['_id']},
                 {'$set': {'candle_period': candle_period}})
 
@@ -225,6 +275,7 @@ def generate_order(symbol, date, min_start, min_end):
     return order
 
 if __name__ == '__main__':
+
     date = 1000
     symbol = 'AAPL'
     market_open = 100
@@ -232,8 +283,8 @@ if __name__ == '__main__':
     v_max = 1
 
     ts = generate_ts(date=date, start=market_open, end=market_close, v_max=v_max)
-    
-    orders_in = [generate_order(symbol=symbol, date=date, min_start=market_open, min_end=market_close) for i in range(20)]
+
+    orders_in = [generate_order(symbol=symbol, date=date, min_start=market_open, min_end=market_close) for i in range(100)]
 
     api = Hts(engine_url='mongodb://localhost:27017/', db_ts_name='ts_example', db_orders_name='orders_example')
 
@@ -251,7 +302,7 @@ if __name__ == '__main__':
 
     print('Retrieve candles:')
     t0 = time.time()
-    api.populate_orders_info(symbol=symbol, date=date)
+    api.assign_candle_orders(symbol=symbol, date=date)
     print(time.time() - t0)
 
 
