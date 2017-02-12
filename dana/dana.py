@@ -1,12 +1,14 @@
-from .userconfig import *
+#from .userconfig import *
 
-from .models import Orders
+from models import Orders
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import and_
 from sqlalchemy import func
 
 from pymongo import MongoClient
+import numpy as np
+import time
 
 N_MINS_DAY = 24*60
 
@@ -106,7 +108,8 @@ class Hts(object):
 
         c_symbol = self._db_ts[symbol]
 
-        cc = c_symbol.find({'date': date, 'mins': {'$gte': start, '$lt': end}}, {"_id": 0}).sort([('mins', 1)])
+        cc = c_symbol.find({'date': date, 'mins': {'$gte': start, '$lt': end}},
+                           {"_id": 0}).sort([('mins', 1)])
         output = [i for i in cc]
         return output
 
@@ -114,15 +117,18 @@ class Hts(object):
 
         ts = self.get_ts(symbol, date, start, end)
 
-        output = {
-            'open': ts[0]['price'],
-            'high': max([i['price'] for i in ts]),
-            'low': min([i['price'] for i in ts]),
-            'close': ts[-1]['price'],
-            'volume': sum([i['volume'] for i in ts]),
-            'vwap': sum([i['volume']*i['price'] for i in ts])/sum([i['volume'] for i in ts])
-        }
-        return output
+        if len(ts) == 0:
+            return {}
+        else:
+            output = {
+                'open': ts[0]['price'],
+                'high': max([i['price'] for i in ts]),
+                'low': min([i['price'] for i in ts]),
+                'close': ts[-1]['price'],
+                'volume': sum([i['volume'] for i in ts]),
+                'vwap': sum([i['volume']*i['price'] for i in ts])/sum([i['volume'] for i in ts])
+            }
+            return output
 
     def drop_orders(self):
 
@@ -148,3 +154,104 @@ class Hts(object):
                            {"_id": 0})
         output = [i for i in cc]
         return output
+
+    def populate_orders_info(self, symbol, date):
+
+        candle_day = self.get_candle(symbol=symbol, date=date)
+
+        coll_orders = self._db_orders['orders']
+
+        coll_orders.update_many(
+            {'symbol': symbol, 'date': date},
+            {'$set': {'candle_day': candle_day}}
+        )
+
+        cursor_orders = coll_orders.find(
+            {'date': date,
+             'symbol': symbol}, {'_id': 1, 'min_start': 1, 'min_end': 1})
+
+        for order in cursor_orders:
+            candle_period = self.get_candle(symbol, date, start=order['min_start'], end=order['min_end'])
+            coll_orders.update_one(
+                {'_id': order['_id']},
+                {'$set': {'candle_period': candle_period}})
+
+
+
+
+# ##############################################################################
+
+
+def generate_ts(date, start, end, v_max):
+
+    ts = []
+    for mins in range(start, end):
+        record = {
+            'date': date,
+            'mins': mins,
+            'price': 100,
+            'volume': v_max
+                 }
+        ts.append(record)
+    return ts
+
+
+def generate_order(symbol, date, min_start, min_end):
+
+    """ Generate a random order """
+
+    # maximum volume of an order
+    v_max = 10000
+
+    # maximum number of trades per order
+    n_max = 10
+
+    # random start and end time
+    t_random = np.random.randint(min_start, min_end, 2)
+
+    order = {
+        'mgr': 'mgr_test',
+        'bkr': 'bkr_test',
+        'symbol': symbol,
+        'side': 1 if np.random.rand() < 0.5 else -1,
+        'date': date,
+        'min_start': int(str(min(t_random))),
+        'min_end': int(str(max(t_random))),
+        'volume': np.random.randint(0, v_max),
+        'price': 100. + 10.*np.random.rand(),
+        'ntrades': np.random.randint(0, n_max)
+    }
+
+    return order
+
+if __name__ == '__main__':
+    date = 1000
+    symbol = 'AAPL'
+    market_open = 100
+    market_close = 200
+    v_max = 1
+
+    ts = generate_ts(date=date, start=market_open, end=market_close, v_max=v_max)
+    
+    orders_in = [generate_order(symbol=symbol, date=date, min_start=market_open, min_end=market_close) for i in range(20)]
+
+    api = Hts(engine_url='mongodb://localhost:27017/', db_ts_name='ts_example', db_orders_name='orders_example')
+
+    print('Insert ts:')
+    t0 = time.time()
+    api.drop_ts()
+    api.insert_ts(symbol, ts)
+    print(time.time() - t0)
+
+    print('Insert orders:')
+    t0 = time.time()
+    api.drop_orders()
+    api.insert_orders(orders_in)
+    print(time.time() - t0)
+
+    print('Retrieve candles:')
+    t0 = time.time()
+    api.populate_orders_info(symbol=symbol, date=date)
+    print(time.time() - t0)
+
+
