@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import and_
 from sqlalchemy import func
 
+import pymongo
 from pymongo import MongoClient
 import numpy as np
 import time
@@ -75,8 +76,8 @@ class Dana(object):
         return tmp
 
 TS_FIELDS = set(['date', 'mins', 'price', 'volume'])
-ORDERS_FIELDS = set(['mgr', 'bkr', 'symbol', 'side', 'date',
-                     'min_start', 'min_end', 'volume', 'price', 'ntrades'])
+ORDERS_FIELDS = set(['mgr', 'bkr', 'symbol', 'sign', 'date',
+                     'min_start', 'min_end', 'volume', 'price', 'ntrades', 'is_ok'])
 
 
 class Hts(object):
@@ -138,25 +139,45 @@ class Hts(object):
 
         return list(cc)
 
+    def ts_index(self, symbol):
+
+        # get the collection corresponding to the symbol
+        collection_symbol = self._db_ts.get_collection(symbol)
+        collection_symbol.create_index([('date', pymongo.ASCENDING)])
+
     def get_candle(self, symbol, date, min_start=0, min_end=N_MINS_DAY):
 
         """ Get the candle corresponding to a symbol and date """
 
-        # get the time series
-        ts = self.get_ts(symbol, date, min_start, min_end)
+        # get the collection corresponding to the symbol
+        collection_symbol = self._db_ts.get_collection(symbol)
 
-        # extract the candle
-        if len(ts) == 0:
+        # get the cursor filtering on the date, min_start and min_end
+        # sort by the minutes
+        pipeline = [
+            {'$match': {'date': date, 'mins': {'$gte': min_start, '$lt': min_end}}},
+            {'$sort': {'mins': 1}},
+            {'$project': {'price': 1, 'volume': 1, 'pv': {'$multiply': ['$price', '$volume']}}},
+            {'$group': {
+                '_id': '',
+                'open': {'$first': '$price'},
+                'high': {'$max': '$price'},
+                'low': {'$min': '$price'},
+                'close': {'$last': '$price'},
+                'volume': {'$sum': '$volume'},
+                'pv': {'$sum': '$pv'}
+                }}
+        ]
+
+        cc = list(collection_symbol.aggregate(pipeline))
+
+        if len(cc) == 0:
             return {}
         else:
-            candle = {
-                'open': ts[0]['price'],
-                'high': max([i['price'] for i in ts]),
-                'low': min([i['price'] for i in ts]),
-                'close': ts[-1]['price'],
-                'volume': sum([i['volume'] for i in ts]),
-                'vwap': sum([i['volume']*i['price'] for i in ts])/sum([i['volume'] for i in ts])
-            }
+            candle = cc[0]
+            candle['vwap'] = float(candle['pv'])/float(candle['volume'])
+            del candle['_id']
+            del candle['pv']
             return candle
 
     def drop_orders(self):
@@ -201,48 +222,100 @@ class Hts(object):
         """ Assign and store in the bd for each order corresponding
         to symbol and date the day and period candle """
 
-        # get the day_candle
-        candle_day = self.get_candle(symbol=symbol, date=date)
 
         # get the collection of the orders
         collection_orders = self._db_orders['orders']
 
-        # set the day_candle to all the orders corresponding to symbol and date
-        collection_orders.update_many(
-            {'symbol': symbol, 'date': date},
-            {'$set': {'candle_day': candle_day}}
-        )
-
         # get the cursor of the order corresponding to symbol and date
         cursor_orders = collection_orders.find(
             {'date': date,
-             'symbol': symbol},
-            {'_id': 1, 'min_start': 1, 'min_end': 1})
+             'symbol': symbol})
 
-        # retrieve and set the period_candle to each order
+        # get the day_candle
+        candle_day = self.get_candle(symbol=symbol, date=date)
+
         for order in cursor_orders:
-            candle_period = self.get_candle(symbol, date, min_start=order['min_start'], min_end=order['min_end'])
-            collection_orders.update_one(
-                {'_id': order['_id']},
-                {'$set': {'candle_period': candle_period}})
 
+            if not order['is_ok']:
+                try:
+                    # get the candle period
+                    candle_period = self.get_candle(symbol, date, min_start=order['min_start'], min_end=order['min_end'])
 
+                    # participation rate day
+                    pr_day = float(order['volume'])/float(candle_day['volume'])
 
+                    # participation rate period
+                    pr_period = float(order['volume'])/float(candle_period['volume'])
+
+                    # duration volume time
+                    duration_vol = float(candle_period['volume'])/float(candle_day['volume'])
+
+                    # duration physical time
+                    duration_ph = order['min_end'] - order['min_start']
+
+                    # daily volatility
+                    volatility_day = float(candle_day['high']-candle_day['low'])/float(candle_day['open'])
+
+                    # temporary impact
+                    impact_end = order['sign'] * np.log(float(candle_period['close'])/candle_period['open'])/volatility_day
+
+                    # impact vwap
+                    impact_vwap = order['sign'] * np.log(float(order['price'])/candle_period['open'])/volatility_day
+
+                    collection_orders.update_one(
+                        {'_id': order['_id']},
+                        {'$set': {
+                            'is_ok': True,
+                            'candle_period': candle_period,
+                            'candle_day': candle_day,
+                            'pr_day': pr_day,
+                            'pr_period': pr_period,
+                            'duration_vol': duration_vol,
+                            'duration_ph': duration_ph,
+                            'volatility_day': volatility_day,
+                            'impact_end': impact_end,
+                            'impact_vwap': impact_vwap,
+                        }})
+                except:
+                    pass
+
+    def get_available_symbol(self):
+
+        # get the collection of orders
+        collection_orders = self._db_orders['orders']
+
+        symbols = collection_orders.find({}, {'symbol': 1}).distinct('symbol')
+        symbols_list = list(symbols)
+        symbols_list.sort()
+        return symbols_list
+
+    def get_available_dates(self):
+
+        # get the collection of orders
+        collection_orders = self._db_orders['orders']
+
+        dates = collection_orders.find({}, {'date': 1}).distinct('date')
+        dates_list = list(dates)
+        dates_list.sort()
+        return dates_list
 
 # ##############################################################################
 
 
 def generate_ts(date, start, end, v_max):
 
+    price = 100.
     ts = []
     for mins in range(start, end):
         record = {
             'date': date,
             'mins': mins,
-            'price': 100,
+            'price': price,
             'volume': v_max
                  }
         ts.append(record)
+        price += 1
+
     return ts
 
 
@@ -257,52 +330,61 @@ def generate_order(symbol, date, min_start, min_end):
     n_max = 10
 
     # random start and end time
-    t_random = np.random.randint(min_start, min_end, 2)
+    t_random = [0, 0]
+    while t_random[0] == t_random[1]:
+        t_random = np.random.randint(min_start, min_end, 2)
 
     order = {
         'mgr': 'mgr_test',
         'bkr': 'bkr_test',
         'symbol': symbol,
-        'side': 1 if np.random.rand() < 0.5 else -1,
+        'sign': 1 if np.random.rand() < 0.5 else -1,
         'date': date,
         'min_start': int(str(min(t_random))),
         'min_end': int(str(max(t_random))),
         'volume': np.random.randint(0, v_max),
         'price': 100. + 10.*np.random.rand(),
-        'ntrades': np.random.randint(0, n_max)
+        'ntrades': np.random.randint(0, n_max),
+        'is_ok': False
     }
 
     return order
 
 if __name__ == '__main__':
 
-    date = 1000
+    date = 200000
     symbol = 'AAPL'
-    market_open = 100
-    market_close = 200
+    market_open = 1
+    market_close = 2**10
     v_max = 1
-
-    ts = generate_ts(date=date, start=market_open, end=market_close, v_max=v_max)
-
-    orders_in = [generate_order(symbol=symbol, date=date, min_start=market_open, min_end=market_close) for i in range(100)]
+    n_orders = 2**6
+    n_dates = 2**2
 
     api = Hts(engine_url='mongodb://localhost:27017/', db_ts_name='ts_example', db_orders_name='orders_example')
 
-    print('Insert ts:')
+    print('drop db')
     t0 = time.time()
     api.drop_ts()
-    api.insert_ts(symbol, ts)
+    api.drop_orders()
     print(time.time() - t0)
 
-    print('Insert orders:')
+
+    print('Insert ' + str(n_dates) + ' ts:')
     t0 = time.time()
-    api.drop_orders()
+    for i in range(date, date+n_dates):
+        ts = generate_ts(date=i, start=market_open, end=market_close, v_max=v_max)
+        api.insert_ts(symbol, ts)
+    api.ts_index(symbol=symbol)
+    print(time.time() - t0)
+
+    print('Insert ' + str(n_orders) + ' orders:')
+    t0 = time.time()
+    orders_in = [generate_order(symbol=symbol, date=date, min_start=market_open, min_end=market_close) for i in range(n_orders)]
     api.insert_orders(orders_in)
     print(time.time() - t0)
 
-    print('Retrieve candles:')
+    print('Insert candles:')
     t0 = time.time()
     api.assign_candle_orders(symbol=symbol, date=date)
     print(time.time() - t0)
-
 
