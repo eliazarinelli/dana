@@ -119,7 +119,7 @@ class Dana(object):
 
         """ Insert orders in the orders db """
 
-        if set(orders_in[0].keys()) != ORDERS_FIELDS:
+        if set(orders[0].keys()) != ORDERS_FIELDS:
             raise ValueError('Wrong format of input in orders: dict keys should be: ' + ', '.join(ORDERS_FIELDS))
 
         # get the orders collection
@@ -148,7 +148,7 @@ class Dana(object):
 
     def assign_candle_orders(self, symbol, date):
 
-        """ Assign and store in the bd for each order corresponding
+        """ Assign and store in the db for each order corresponding
         to symbol and date the day and period candle """
 
 
