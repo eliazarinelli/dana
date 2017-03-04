@@ -16,6 +16,9 @@ class OrdersReservoir(object):
         self._db_name = db_name
         self._db_orders = self._client[self._db_name]
 
+    def close(self):
+        self._client.close()
+
     def empty_reservoir(self):
 
         """ Drop the orders database """
@@ -34,54 +37,6 @@ class OrdersReservoir(object):
 
         # insert input orders
         collection_orders.insert_many(orders)
-
-    def get_orders(self, symbol=None, date=None):
-
-        """ Get orders corresponding to symbol and date """
-
-        # create filter for symbol and dates
-        filter_order = {}
-        if date is not None:
-            filter_order['date'] = date
-        if symbol is not None:
-            filter_order['symbol'] = symbol
-
-        # get the collection of orders
-        collection_orders = self._db_orders['orders']
-
-        # filtering on the date and symbol
-        cc = collection_orders.find(filter_order)
-        return list(cc)
-
-    def get_symbols(self, date=None):
-
-        # create filter for date
-        filter_order = {}
-        if date is not None:
-            filter_order['date'] = date
-
-        # get the collection of orders
-        collection_orders = self._db_orders['orders']
-
-        symbols = collection_orders.find(filter_order, {'symbol': 1}).distinct('symbol')
-        symbols_list = list(symbols)
-        symbols_list.sort()
-        return symbols_list
-
-    def get_dates(self, symbol=None):
-
-        # create filter symbol
-        filter_order = {}
-        if symbol is not None:
-            filter_order['symbol'] = symbol
-
-        # get the collection of orders
-        collection_orders = self._db_orders['orders']
-
-        dates = collection_orders.find(filter_order, {'date': 1}).distinct('date')
-        dates_list = list(dates)
-        dates_list.sort()
-        return dates_list
 
     def add_market_info(self, order_id, candle_day, candle_period):
 
@@ -104,15 +59,6 @@ class OrdersReservoir(object):
             # duration physical time
             duration_ph = order['min_end'] - order['min_start']
 
-            # daily volatility
-            volatility_day = float(candle_day['high']-candle_day['low'])/float(candle_day['open'])
-
-            # temporary impact
-            impact_end = order['sign'] * np.log(float(candle_period['close'])/candle_period['open'])/volatility_day
-
-            # impact vwap
-            impact_vwap = order['sign'] * np.log(float(order['price'])/candle_period['open'])/volatility_day
-
             collection_orders.update_one(
                 {'_id': order['_id']},
                 {'$set': {
@@ -123,12 +69,96 @@ class OrdersReservoir(object):
                     'pr_period': pr_period,
                     'duration_vol': duration_vol,
                     'duration_ph': duration_ph,
-                    'volatility_day': volatility_day,
-                    'impact_end': impact_end,
-                    'impact_vwap': impact_vwap,
                 }})
         except:
             pass
+
+    def _generate_filter(self, symbol_list=None, mgr_list=None, bkr_list=None, date_list=None, sign=None,
+                         start_inf=None, start_sup=None, end_inf=None, end_sup=None,
+                         duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
+                         prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
+        filter_in = {}
+
+        if symbol_list is not None:
+            filter_in['symbol'] = {'$in': symbol_list}
+
+        if date_list is not None:
+            filter_in['date'] = {'$in': date_list}
+
+        if mgr_list is not None:
+            filter_in['mgr'] = {'$in': mgr_list}
+
+        if bkr_list is not None:
+            filter_in['bkr'] = {'$in': bkr_list}
+
+        if sign is not None:
+            filter_in['sign'] = sign
+
+        if start_inf is not None or start_sup is not None:
+            tmp = {}
+            if start_inf is not None:
+               tmp['$gte'] = start_inf
+            if start_sup is not None:
+               tmp['$lt'] = start_sup
+            filter_in['min_start'] = tmp
+
+        if end_inf is not None or end_sup is not None:
+            tmp = {}
+            if end_inf is not None:
+               tmp['$gte'] = end_inf
+            if start_sup is not None:
+               tmp['$lt'] = end_sup
+            filter_in['min_end'] = tmp
+
+        return filter_in
+
+    def get_orders(self, symbol_list=None, mgr_list=None, bkr_list=None, date_list=None, sign=None,
+                         start_inf=None, start_sup=None, end_inf=None, end_sup=None,
+                         duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
+                         prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
+
+        """ Get orders corresponding to symbol and date """
+
+        # create filter
+        filter_order = self._generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list,
+                                             date_list=date_list, sign=sign,
+                                             start_inf=start_inf, start_sup=start_sup,
+                                             end_inf=end_inf, end_sup=end_sup,
+                                             duration_ph_inf=duration_ph_inf, duration_ph_sup=duration_ph_sup,
+                                             duration_vol_inf=duration_vol_inf, duration_vol_sup=duration_vol_sup,
+                                             prp_inf=prp_inf, prp_sup=prp_sup, prd_inf=prd_inf, prd_sup=prd_sup)
+        # get the collection of orders
+        collection_orders = self._db_orders['orders']
+
+        # filtering on the date and symbol
+        cc = collection_orders.find(filter_order)
+        return list(cc)
+
+    def get_symbols(self, date_list=None, mgr_list=None, bkr_list=None):
+
+        # create filter
+        filter_order = self._generate_filter(date_list=date_list, mgr_list=mgr_list, bkr_list=bkr_list)
+
+        # get the collection of orders
+        collection_orders = self._db_orders['orders']
+
+        symbols = collection_orders.find(filter_order, {'symbol': 1}).distinct('symbol')
+        symbols_list = list(symbols)
+        symbols_list.sort()
+        return symbols_list
+
+    def get_dates(self, symbol_list=None, mgr_list=None, bkr_list=None):
+
+        # create filter
+        filter_order = self._generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list)
+
+        # get the collection of orders
+        collection_orders = self._db_orders['orders']
+
+        dates = collection_orders.find(filter_order, {'date': 1}).distinct('date')
+        dates_list = list(dates)
+        dates_list.sort()
+        return dates_list
 
 
 class Hts(object):
@@ -227,104 +257,4 @@ class Hts(object):
             del candle['_id']
             del candle['pv']
             return candle
-
-
-# ##############################################################################
-
-
-def generate_ts(date, start, end, v_max):
-
-    price = 100.
-    ts = []
-    for mins in range(start, end):
-        record = {
-            'date': date,
-            'mins': mins,
-            'price': price,
-            'volume': v_max
-                 }
-        ts.append(record)
-        price += 1
-
-    return ts
-
-
-def generate_order(symbol, date, min_start, min_end):
-
-    """ Generate a random order """
-
-    # maximum volume of an order
-    v_max = 10000
-
-    # maximum number of trades per order
-    n_max = 10
-
-    # random start and end time
-    t_random = [0, 0]
-    while t_random[0] == t_random[1]:
-        t_random = np.random.randint(min_start, min_end, 2)
-
-    order = {
-        'mgr': 'mgr_test',
-        'bkr': 'bkr_test',
-        'symbol': symbol,
-        'sign': 1 if np.random.rand() < 0.5 else -1,
-        'date': date,
-        'min_start': int(str(min(t_random))),
-        'min_end': int(str(max(t_random))),
-        'volume': np.random.randint(0, v_max),
-        'price': 100. + 10.*np.random.rand(),
-        'ntrades': np.random.randint(0, n_max),
-        'is_ok': False
-    }
-
-    return order
-
-if __name__ == '__main__':
-
-    date = 200000
-    symbol = 'AAPL'
-    market_open = 1
-    market_close = 2**10
-    v_max = 1
-    n_orders = 2**0
-    n_dates = 2**0
-
-    reservoir = OrdersReservoir(engine_url='mongodb://localhost:27017/', db_name='orders_example')
-    hts = Hts(engine_url='mongodb://localhost:27017/', db_name='ts_example')
-
-    print('Insert ' + str(n_dates) + ' ts:')
-    t0 = time.time()
-    hts.drop_ts()
-    for i in range(date, date+n_dates):
-        ts = generate_ts(date=i, start=market_open, end=market_close, v_max=v_max)
-        print(len(ts))
-        hts.insert_ts(symbol, ts)
-    hts.ts_index(symbol=symbol)
-    print(time.time() - t0)
-
-    cc = hts.get_candle(symbol=symbol, date=date, min_start=market_open, min_end=market_close)
-
-    print('Insert ' + str(n_orders) + ' orders:')
-    t0 = time.time()
-    reservoir.empty_reservoir()
-    orders_in = []
-    orders_in.append(generate_order(symbol=symbol, date=date, min_start=market_open, min_end=market_close))
-    orders_in.append(generate_order(symbol=symbol, date=date+1, min_start=market_open, min_end=market_close))
-    orders_in.append(generate_order(symbol='MSFT', date=date, min_start=market_open, min_end=market_close))
-    orders_in.append(generate_order(symbol='MSFT', date=date+1, min_start=market_open, min_end=market_close))
-
-    reservoir.insert_orders(orders_in)
-    print(time.time() - t0)
-
-    order_list = reservoir.get_orders()
-    print(len(order_list))
-    for order in order_list:
-        reservoir.add_market_info(order['_id'], candle_day=cc, candle_period=cc)
-
-    list_dates = reservoir.get_dates(symbol=symbol)
-    print(list_dates)
-
-    list_symbols = reservoir.get_symbols()
-    print(list_symbols)
 
