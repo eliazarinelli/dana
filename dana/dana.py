@@ -9,6 +9,80 @@ ORDERS_FIELDS = set(['mgr', 'bkr', 'symbol', 'sign', 'date',
                      'min_start', 'min_end', 'volume', 'price', 'ntrades', 'is_ok'])
 
 
+def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=None, sign=None,
+                     start_inf=None, start_sup=None, end_inf=None, end_sup=None,
+                     duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
+                     prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
+
+    # empty output
+    filter_in = {}
+
+    if symbol_list is not None:
+        filter_in['symbol'] = {'$in': symbol_list}
+
+    if date_list is not None:
+        filter_in['date'] = {'$in': date_list}
+
+    if mgr_list is not None:
+        filter_in['mgr'] = {'$in': mgr_list}
+
+    if bkr_list is not None:
+        filter_in['bkr'] = {'$in': bkr_list}
+
+    if sign is not None:
+        filter_in['sign'] = sign
+
+    if start_inf is not None or start_sup is not None:
+        tmp = {}
+        if start_inf is not None:
+           tmp['$gte'] = start_inf
+        if start_sup is not None:
+           tmp['$lt'] = start_sup
+        filter_in['min_start'] = tmp
+
+    if end_inf is not None or end_sup is not None:
+        tmp = {}
+        if end_inf is not None:
+           tmp['$gte'] = end_inf
+        if start_sup is not None:
+           tmp['$lt'] = end_sup
+        filter_in['min_end'] = tmp
+
+    if duration_ph_inf is not None or duration_ph_sup is not None:
+        tmp = {}
+        if duration_ph_inf is not None:
+           tmp['$gte'] = duration_ph_inf
+        if duration_ph_sup is not None:
+           tmp['$lt'] = duration_ph_sup
+        filter_in['duration_ph'] = tmp
+
+    if duration_vol_inf is not None or duration_vol_sup is not None:
+        tmp = {}
+        if duration_vol_inf is not None:
+           tmp['$gte'] = duration_vol_inf
+        if duration_ph_sup is not None:
+           tmp['$lt'] = duration_vol_sup
+        filter_in['duration_vol'] = tmp
+
+    if prp_inf is not None or prp_sup is not None:
+        tmp = {}
+        if prp_inf is not None:
+           tmp['$gte'] = prp_inf
+        if prp_sup is not None:
+           tmp['$lt'] = prp_sup
+        filter_in['pr_period'] = tmp
+
+    if prd_inf is not None or prd_sup is not None:
+        tmp = {}
+        if prd_inf is not None:
+           tmp['$gte'] = prd_inf
+        if prd_sup is not None:
+           tmp['$lt'] = prd_sup
+        filter_in['pr_day'] = tmp
+
+    return filter_in
+
+
 class OrdersReservoir(object):
 
     def __init__(self, engine_url, db_name):
@@ -40,6 +114,8 @@ class OrdersReservoir(object):
 
     def add_market_info(self, order_id, candle_day, candle_period):
 
+        """ Add the market info to an order: duration, period and day participation rate """
+
         # get the collection of the orders
         collection_orders = self._db_orders['orders']
 
@@ -59,6 +135,7 @@ class OrdersReservoir(object):
             # duration physical time
             duration_ph = order['min_end'] - order['min_start']
 
+            # update value
             collection_orders.update_one(
                 {'_id': order['_id']},
                 {'$set': {
@@ -73,92 +150,93 @@ class OrdersReservoir(object):
         except:
             pass
 
-    def _generate_filter(self, symbol_list=None, mgr_list=None, bkr_list=None, date_list=None, sign=None,
-                         start_inf=None, start_sup=None, end_inf=None, end_sup=None,
-                         duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
-                         prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
-        filter_in = {}
+    def add_impact(self, order_id, impact_value):
 
-        if symbol_list is not None:
-            filter_in['symbol'] = {'$in': symbol_list}
+        """ Add the impact to an order """
 
-        if date_list is not None:
-            filter_in['date'] = {'$in': date_list}
+        # get the collection of the orders
+        collection_orders = self._db_orders['orders']
 
-        if mgr_list is not None:
-            filter_in['mgr'] = {'$in': mgr_list}
-
-        if bkr_list is not None:
-            filter_in['bkr'] = {'$in': bkr_list}
-
-        if sign is not None:
-            filter_in['sign'] = sign
-
-        if start_inf is not None or start_sup is not None:
-            tmp = {}
-            if start_inf is not None:
-               tmp['$gte'] = start_inf
-            if start_sup is not None:
-               tmp['$lt'] = start_sup
-            filter_in['min_start'] = tmp
-
-        if end_inf is not None or end_sup is not None:
-            tmp = {}
-            if end_inf is not None:
-               tmp['$gte'] = end_inf
-            if start_sup is not None:
-               tmp['$lt'] = end_sup
-            filter_in['min_end'] = tmp
-
-        return filter_in
+        # update value
+        collection_orders.update_one(
+            {'_id': order_id},
+            {'$set': {'impact': impact_value}})
 
     def get_orders(self, symbol_list=None, mgr_list=None, bkr_list=None, date_list=None, sign=None,
-                         start_inf=None, start_sup=None, end_inf=None, end_sup=None,
-                         duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
-                         prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
+                   start_inf=None, start_sup=None, end_inf=None, end_sup=None,
+                   duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
+                   prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
 
-        """ Get orders corresponding to symbol and date """
+        """ Get orders """
 
         # create filter
-        filter_order = self._generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list,
-                                             date_list=date_list, sign=sign,
-                                             start_inf=start_inf, start_sup=start_sup,
-                                             end_inf=end_inf, end_sup=end_sup,
-                                             duration_ph_inf=duration_ph_inf, duration_ph_sup=duration_ph_sup,
-                                             duration_vol_inf=duration_vol_inf, duration_vol_sup=duration_vol_sup,
-                                             prp_inf=prp_inf, prp_sup=prp_sup, prd_inf=prd_inf, prd_sup=prd_sup)
+        filter_order = _generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list,
+                                        date_list=date_list, sign=sign,
+                                        start_inf=start_inf, start_sup=start_sup,
+                                        end_inf=end_inf, end_sup=end_sup,
+                                        duration_ph_inf=duration_ph_inf, duration_ph_sup=duration_ph_sup,
+                                        duration_vol_inf=duration_vol_inf, duration_vol_sup=duration_vol_sup,
+                                        prp_inf=prp_inf, prp_sup=prp_sup, prd_inf=prd_inf, prd_sup=prd_sup)
+
         # get the collection of orders
         collection_orders = self._db_orders['orders']
 
-        # filtering on the date and symbol
-        cc = collection_orders.find(filter_order)
-        return list(cc)
+        # apply filter
+        orders_cursor = collection_orders.find(filter_order)
+
+        return orders_cursor
 
     def get_symbols(self, date_list=None, mgr_list=None, bkr_list=None):
 
+        """ Get list of unique symbols """
+
         # create filter
-        filter_order = self._generate_filter(date_list=date_list, mgr_list=mgr_list, bkr_list=bkr_list)
+        filter_order = _generate_filter(date_list=date_list, mgr_list=mgr_list, bkr_list=bkr_list)
 
         # get the collection of orders
         collection_orders = self._db_orders['orders']
 
+        # get distinct values of symbol using filter
         symbols = collection_orders.find(filter_order, {'symbol': 1}).distinct('symbol')
+
+        # transform to list and sort
         symbols_list = list(symbols)
         symbols_list.sort()
+
         return symbols_list
 
     def get_dates(self, symbol_list=None, mgr_list=None, bkr_list=None):
 
+        """ Get list of unique dates """
+
         # create filter
-        filter_order = self._generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list)
+        filter_order = _generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list)
 
         # get the collection of orders
         collection_orders = self._db_orders['orders']
 
+        # get distinct values of dates applying filter
         dates = collection_orders.find(filter_order, {'date': 1}).distinct('date')
+
+        # transform to list and sort
         dates_list = list(dates)
         dates_list.sort()
+
         return dates_list
+
+    def bucket_stuff(self):
+
+        # get the collection of orders
+        collection_orders = self._db_orders['orders']
+
+        tmp = collection_orders.aggregate([{'$bucket': {'groupBy': '$min_start',
+                                                        'boundaries': [0, 10, 20, 30, 40, 50, 1000],
+                                                        'default': "Other",
+                                                        'output': {
+                                                            'count': {'$avg': '$min_start'},
+                                                            'ss': {'$stdDevPop': '$min_start'}
+                                                        }}}])
+        return tmp
 
 
 class Hts(object):
