@@ -19,69 +19,50 @@ from bokeh.plotting import figure
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-
-from dana.dana import Dana
-
-# connection to the database
-db_path = os.path.abspath('../db/db')
-db_name = 'example.db'
-engine_url = '/'.join(['sqlite:///', db_path, db_name])
-
-# retrieve data
-api = Dana(engine_url)
-list_symbols = api.get_symbols()
-list_dates = api.get_dates()
-
-# plot orders definition
-p_orders = figure(
-    plot_height=400,
-    plot_width=500,
-    tools="crosshair,pan,reset,save,wheel_zoom,hover",
-    x_range=[500, 1100],
-    y_range=[-200, 200],
-    title="Intraday orders"
-    )
-
-# plot orders select
-p_orders.select_one(HoverTool).tooltips = [
-    ("Broker", "@bkr"),
-    ("Manager", "@mgr"),
-    ("VWAP", "@price")
-]
-
-# definition of data source and markers for the orders
-source_orders = ColumnDataSource(data=dict(x_0=[], y_0=[], x_1=[], y_1=[], color=[], bkr=[], mgr=[], price=[]))
-p_orders.quad(left='x_0', bottom='y_0', right='x_1', top='y_1', color='color', source=source_orders, alpha=0.2)
+from dana.dana import OrdersReservoir
 
 
-# Set up widgets
-w_text_db = TextInput(title='Database URL', value=engine_url, width=400)
-w_select_symbol = Select(title="Symbol:", value=list_symbols[0], options=list_symbols, width=60)
-w_datepickler = DatePicker(
-    title='Date',
-    min_date=datetime.fromordinal(list_dates[0]),
-    max_date=datetime.fromordinal(list_dates[-1]),
-    value=datetime.fromordinal(list_dates[0]),
-    width=100)
-w_button = Button(label="Update plot")
+def connect_db():
 
+    # create engine url
+    engine_url = 'mongodb://' + text_db_host.value + ':' + text_db_port.value + '/'
+
+    # connection to the database
+    api = OrdersReservoir(engine_url=engine_url, db_name=text_db_orders.value)
+
+    # get available symbols and dates
+    list_symbols = api.get_symbols()
+    list_dates_0 = api.get_dates()
+    list_dates = [str(i) for i in list_dates_0]
+
+    # display new available symbols and dates
+    select_symbol.options = ['None'] + list_symbols
+    select_date.options = ['None'] + list_dates
+
+    api_global.append(api)
 
 def update_data():
 
-    # get the orders in the database corresponing to the selected date date and symbol
-    dd = api.get_day(symbol=w_select_symbol.value, date=datetime.toordinal(w_datepickler.value))
+    # get the orders in the database corresponding to the selected date date and symbol
+    symbol_in = select_symbol.value
+    date_in = int(select_date.value)
+
+    # get orders
+    dd_iterator = api_global[0].get_orders(symbol_list=[symbol_in], date_list=[date_in])
+
+    dd = list(dd_iterator)
 
     # get the data for the plot
-    x_start = [order['time_start'] for order in dd]
-    x_end = [order['time_end'] for order in dd]
-    y_start = [0 if order['side'] == 1 else
-               order['side']*float(order['volume'])/
-               (1+order['time_end']-order['time_start']) for order in dd]
-    y_end = [0 if order['side'] == -1 else
-               order['side']*float(order['volume'])/
-               (1+order['time_end']-order['time_start']) for order in dd]
+    x_start = [order['min_start'] for order in dd]
+    x_end = [order['min_end'] for order in dd]
+    y_start = [0 if order['sign'] == 1 else
+               order['sign']*float(order['volume'])/
+               (order['min_end']-order['min_start']) for order in dd]
+    y_end = [0 if order['sign'] == -1 else
+               order['sign']*float(order['volume'])/
+               (order['min_end']-order['min_start']) for order in dd]
     tmp = {1: 'navy', -1: 'red'}
-    c_lines = [tmp[i['side']] for i in dd]
+    c_lines = [tmp[i['sign']] for i in dd]
     bkr_list = [order['bkr'] for order in dd]
     mgr_list = [order['mgr'] for order in dd]
     price_list = [order['price'] for order in dd]
@@ -91,18 +72,62 @@ def update_data():
                               color=c_lines, bkr=bkr_list, mgr=mgr_list, price=price_list)
 
     # update the scale
-    p_orders.y_range.start = min(y_start)
-    p_orders.y_range.end = max(y_end)
+    plot_orders.y_range.start = min(y_start)
+    plot_orders.y_range.end = max(y_end)
+    plot_orders.x_range.start = min(x_start)
+    plot_orders.x_range.end = max(x_end)
 
-    p_orders.title.text = 'Intraday orders - symbol: ' + w_select_symbol.value +\
-                          '  date: ' + str(w_datepickler.value)[0:10]
+    plot_orders.title.text = 'Intraday orders - symbol: ' + select_symbol.value +\
+                          '  date: ' + select_date.value
 
-# associate the function to the button
-w_button.on_click(update_data)
+api_global = []
+
+# Database connection
+name_db_host = 'localhost'
+text_db_host = TextInput(title='Database host:', value=name_db_host, width=400)
+
+name_db_port = '27017'
+text_db_port = TextInput(title='Database port:', value=name_db_port, width=400)
+
+name_db_orders = 'orders_example'
+text_db_orders = TextInput(title='Name database orders:', value=name_db_orders, width=400)
 
 
-# Set up layouts and add to document
-inputs = widgetbox(children=[w_text_db, w_select_symbol, w_datepickler, w_button], width=300)
+# Symbol and date selection
 
-curdoc().add_root(row(p_orders, inputs))
+list_symbols = ['None']
+select_symbol = Select(title="Symbol:", value='Pippo', options=list_symbols, width=60)
+
+list_dates = ['None']
+select_date = Select(title="Date:", value='Pippo', options=list_dates, width=60)
+
+
+button_db_connect = Button(label="Connect to db")
+button_db_connect.on_click(connect_db)
+
+# Plot
+plot_orders = figure(
+    plot_height=300,
+    plot_width=600,
+    tools="crosshair,pan,reset,save,wheel_zoom,hover",
+    x_range=[500, 1100],
+    y_range=[-200, 200],
+    title="Intraday orders"
+    )
+source_orders = ColumnDataSource(data=dict(x_0=[], y_0=[], x_1=[], y_1=[], color=[], bkr=[], mgr=[], price=[]))
+plot_orders.quad(left='x_0', bottom='y_0', right='x_1', top='y_1', color='color', source=source_orders, alpha=0.2)
+
+# plot orders select
+plot_orders.select_one(HoverTool).tooltips = [
+    ("Broker", "@bkr"),
+    ("Manager", "@mgr"),
+    ("VWAP", "@price")
+]
+
+button_plot = Button(label="Plot")
+button_plot.on_click(update_data)
+
+inputs = widgetbox(children=[text_db_host, text_db_port, text_db_orders, button_db_connect,
+                             select_symbol, select_date, button_plot], width=300)
+curdoc().add_root(row(inputs, plot_orders))
 curdoc().title = "Intraday"
