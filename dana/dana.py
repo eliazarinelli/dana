@@ -6,7 +6,7 @@ import time
 N_MINS_DAY = 24*60
 TS_FIELDS = set(['date', 'mins', 'price', 'volume'])
 ORDERS_FIELDS = set(['mgr', 'bkr', 'symbol', 'sign', 'date',
-                     'min_start', 'min_end', 'volume', 'price', 'ntrades', 'is_ok'])
+                     'min_start', 'min_end', 'volume', 'price', 'ntrades', 'duration_ph', 'mi'])
 
 
 def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=None, sign=None,
@@ -62,7 +62,7 @@ def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=N
            tmp['$gte'] = duration_vol_inf
         if duration_ph_sup is not None:
            tmp['$lt'] = duration_vol_sup
-        filter_in['duration_vol'] = tmp
+        filter_in['mi.duration_vol'] = tmp
 
     if prp_inf is not None or prp_sup is not None:
         tmp = {}
@@ -70,7 +70,7 @@ def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=N
            tmp['$gte'] = prp_inf
         if prp_sup is not None:
            tmp['$lt'] = prp_sup
-        filter_in['pr_period'] = tmp
+        filter_in['mi.pr_period'] = tmp
 
     if prd_inf is not None or prd_sup is not None:
         tmp = {}
@@ -78,9 +78,42 @@ def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=N
            tmp['$gte'] = prd_inf
         if prd_sup is not None:
            tmp['$lt'] = prd_sup
-        filter_in['pr_day'] = tmp
+        filter_in['mi.pr_day'] = tmp
 
     return filter_in
+
+
+def create_mi(order, candle_day, candle_period, volatility):
+
+    output = {'available': False}
+
+    try:
+        # participation rate day
+        output['pr_day'] = float(order['volume'])/float(candle_day['volume'])
+
+        # participation rate period
+        output['pr_period'] = float(order['volume'])/float(candle_period['volume'])
+
+        # duration volume time
+        output['duration_vol'] = float(candle_period['volume'])/float(candle_day['volume'])
+
+        # impact end to start
+        output['impact_co'] = float(order['sign'])*np.log(float(candle_period['close'])/float(candle_period['open']))/volatility
+
+        # impact vwap versus start
+        output['impact_vo'] = float(order['sign'])*np.log(float(order['price'])/float(candle_period['open']))/volatility
+
+        # impact vwap versus start
+        output['impact_vv'] = float(order['sign'])*np.log(float(order['price'])/float(candle_period['vwap']))/volatility
+
+        # availability
+        output['available'] = True
+
+    except:
+        pass
+
+    return output
+
 
 
 class OrdersReservoir(object):
@@ -224,18 +257,37 @@ class OrdersReservoir(object):
 
         return dates_list
 
-    def bucket_stuff(self):
+    def bucket_stuff(self, field_x, field_y, boundaries, symbol_list=None, mgr_list=None,
+                     bkr_list=None, date_list=None, sign=None,
+                     start_inf=None, start_sup=None, end_inf=None, end_sup=None,
+                     duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
+                     prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
+
+        # create filter
+        filter_order = _generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list,
+                                        date_list=date_list, sign=sign,
+                                        start_inf=start_inf, start_sup=start_sup,
+                                        end_inf=end_inf, end_sup=end_sup,
+                                        duration_ph_inf=duration_ph_inf, duration_ph_sup=duration_ph_sup,
+                                        duration_vol_inf=duration_vol_inf, duration_vol_sup=duration_vol_sup,
+                                        prp_inf=prp_inf, prp_sup=prp_sup, prd_inf=prd_inf, prd_sup=prd_sup)
 
         # get the collection of orders
         collection_orders = self._db_orders['orders']
 
-        tmp = collection_orders.aggregate([{'$bucket': {'groupBy': '$min_start',
-                                                        'boundaries': [0, 10, 20, 30, 40, 50, 1000],
-                                                        'default': "Other",
-                                                        'output': {
-                                                            'count': {'$avg': '$min_start'},
-                                                            'ss': {'$stdDevPop': '$min_start'}
-                                                        }}}])
+        p_match = {'$match': filter_order}
+
+        p_bucket = {'$bucket': {'groupBy': '$'+field_x,
+                                'boundaries': boundaries,
+                                'default': "Other",
+                                'output': {
+                                    'm_x': {'$avg': '$'+field_x},
+                                    's_x': {'$stdDevPop': '$'+field_x},
+                                    'm_y': {'$avg': '$'+field_y},
+                                    's_y': {'$stdDevPop': '$'+field_y}
+                                }}}
+
+        tmp = collection_orders.aggregate([p_match, p_bucket])
         return tmp
 
 
