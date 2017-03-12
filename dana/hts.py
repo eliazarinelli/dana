@@ -1,5 +1,5 @@
 
-from pymongo import MongoClient
+import pymongo
 
 N_MINS_DAY = 24*60
 
@@ -9,11 +9,16 @@ TS_FIELDS = set(['date', 'mins', 'price', 'volume'])
 class Hts(object):
 
     def __init__(self, engine_url, db_name):
-        self._client = MongoClient(engine_url)
+        self._client = pymongo.MongoClient(engine_url)
         self._db_name = db_name
         self._db_hts = self._client[self._db_name]
 
-    def drop_ts(self, symbol=None):
+    def close(self):
+        self._client.close()
+
+    # DELETE #######################################################
+
+    def drop_symbol(self, symbol):
 
         """
         Drop the ts database
@@ -23,10 +28,9 @@ class Hts(object):
         symbol: string, if provided drop only the associated collection
         """
 
-        if symbol is None:
-            self._client.drop_database(self._db_name)
-        else:
-            self._db_hts.drop_collection(symbol)
+        self._db_hts.drop_collection(symbol)
+
+    # CREATE #########################################################
 
     def insert_ts(self, symbol, ts):
 
@@ -46,6 +50,14 @@ class Hts(object):
         collection_symbol = self._db_hts.get_collection(symbol)
         collection_symbol.insert_many(ts)
 
+    def add_index(self, symbol):
+
+        # get the collection corresponding to the symbol
+        collection_symbol = self._db_hts.get_collection(symbol)
+        collection_symbol.create_index([('date', pymongo.ASCENDING), ('mins', pymongo.ASCENDING)])
+
+    # READ ##########################################################
+
     def get_ts(self, symbol, date, min_start=0, min_end=N_MINS_DAY):
 
         """ Get the time series corresponding to a symbol and date """
@@ -60,13 +72,7 @@ class Hts(object):
              'mins': {'$gte': min_start, '$lt': min_end}},
             {"_id": 0}).sort([('mins', 1)])
 
-        return list(cc)
-
-    def ts_index(self, symbol):
-
-        # get the collection corresponding to the symbol
-        collection_symbol = self._db_hts.get_collection(symbol)
-        collection_symbol.create_index([('date', pymongo.ASCENDING)])
+        return cc
 
     def get_candle(self, symbol, date, min_start=0, min_end=N_MINS_DAY):
 
