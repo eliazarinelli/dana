@@ -2,6 +2,8 @@
 
 ## Setup
 
+Install [MongoDB](https://www.mongodb.com) version 3.4.2 or more recent.
+
 Install [Anaconda](http://conda.pydata.org/docs/index.html).
 
 Create a local environment with `conda`. The command below will create a local environment named `dana_env`:
@@ -20,33 +22,28 @@ Intall [Bokeh](http://bokeh.pydata.org/en/latest/) in the local environment:
 conda install bokeh
 ```
 
+Install [pymongo](https://api.mongodb.com/python/current/) in the local environmet:
+```
+conda install pymongo
+```
+
 ## Quickstart
 
-Open the notebook `notebooks/quickstart.ipynb` and follow the instructions.
+Open the notebook `notebooks/quickstart.ipynb` and follow the steps.
+
+## Documentation
+
+Waiting for an official documentation, plese have a look to the notebooks:
+
+* `notebooks/hts_api.ipynb`
+* `notebooks/reservoir_api.ipynb`
 
 ## Dataviz
 
-Go in the `apps` folder and run
+Go to the `apps` folder and run
 ```
 bokeh serve intraday.py
 ```
 
-Then from your browser go to `http://localhost:5006/intraday`.
+Then from your browser go to `http://localhost:5006/intraday` and play around.
 
-## Mysql setup
-
-Install [MySQL](http://dev.mysql.com/).
-
-Install `pymysql` in the local environment:
-```
-conda install pymysql
-```
-
-Create a file in `dana/userconfig.py` with the following content:
-```
-USER_NAME = 'your_user_name'
-USER_PWD = 'your_user_pwd'
-HOST_NAME = 'local_or_remote_host'
-DB_NAME = 'database_name'
-```
-This file should not be added to git to avoid sharing your credentials.
