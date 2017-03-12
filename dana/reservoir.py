@@ -4,7 +4,7 @@ import numpy as np
 import time
 
 ORDERS_FIELDS = set(['mgr', 'bkr', 'symbol', 'sign', 'date',
-                     'min_start', 'min_end', 'volume', 'price', 'ntrades', 'duration_ph', 'mi'])
+                     'min_start', 'min_end', 'volume', 'price', 'ntrades', 'duration_ph', 'mi', 'ci'])
 
 def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=None, sign=None,
                      start_inf=None, start_sup=None, end_inf=None, end_sup=None,
@@ -80,7 +80,7 @@ def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=N
     return filter_in
 
 
-def create_mi(order, candle_day, candle_period, volatility):
+def create_ci(order, candle_day, candle_period, volatility):
 
     output = {'available': False}
 
@@ -112,6 +112,27 @@ def create_mi(order, candle_day, candle_period, volatility):
     return output
 
 
+def create_mi(order, time_series, volatility):
+
+    output = {'available': False}
+
+    try:
+
+        for record in time_series:
+            if record['mins']==order['min_start']:
+                price_start = record['price']
+
+            output['m_'+str(record['mins']-order['min_start'])] = \
+                float(order['sign'])*np.log(float(record['price'])/float(price_start))/volatility
+
+        # availability
+        output['available'] = True
+
+    except:
+        pass
+
+    return output
+
 
 class OrdersReservoir(object):
 
@@ -123,15 +144,12 @@ class OrdersReservoir(object):
     def close(self):
         self._client.close()
 
-    def empty_reservoir(self):
 
-        """ Drop the orders database """
-
-        self._client.drop_database(self._db_name)
+    # CREATE #####################################################
 
     def insert_orders(self, orders):
 
-        """ Insert orders in the orders db """
+        """ Receive a list of orders and insert them in the database """
 
         if set(orders[0].keys()) != ORDERS_FIELDS:
             raise ValueError('Wrong format of input in orders: dict keys should be: ' + ', '.join(ORDERS_FIELDS))
@@ -142,62 +160,24 @@ class OrdersReservoir(object):
         # insert input orders
         collection_orders.insert_many(orders)
 
-    def add_market_info(self, order_id, candle_day, candle_period):
-
-        """ Add the market info to an order: duration, period and day participation rate """
-
-        # get the collection of the orders
-        collection_orders = self._db_orders['orders']
-
-        try:
-            # get the order
-            order = collection_orders.find({'_id': order_id})[0]
-
-            # participation rate day
-            pr_day = float(order['volume'])/float(candle_day['volume'])
-
-            # participation rate period
-            pr_period = float(order['volume'])/float(candle_period['volume'])
-
-            # duration volume time
-            duration_vol = float(candle_period['volume'])/float(candle_day['volume'])
-
-            # duration physical time
-            duration_ph = order['min_end'] - order['min_start']
-
-            # update value
-            collection_orders.update_one(
-                {'_id': order['_id']},
-                {'$set': {
-                    'is_ok': True,
-                    'candle_period': candle_period,
-                    'candle_day': candle_day,
-                    'pr_day': pr_day,
-                    'pr_period': pr_period,
-                    'duration_vol': duration_vol,
-                    'duration_ph': duration_ph,
-                }})
-        except:
-            pass
-
-    def add_impact(self, order_id, impact_value):
-
-        """ Add the impact to an order """
-
-        # get the collection of the orders
-        collection_orders = self._db_orders['orders']
-
-        # update value
-        collection_orders.update_one(
-            {'_id': order_id},
-            {'$set': {'impact': impact_value}})
+    # READ ######################################################
 
     def get_orders(self, symbol_list=None, mgr_list=None, bkr_list=None, date_list=None, sign=None,
                    start_inf=None, start_sup=None, end_inf=None, end_sup=None,
                    duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
                    prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
 
-        """ Get orders """
+        """
+        Get orders
+
+        Input:
+        ------
+        filter values, if provided, the filter applies
+
+        Output:
+        -------
+        a cursor
+        """
 
         # create filter
         filter_order = _generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list,
@@ -216,9 +196,9 @@ class OrdersReservoir(object):
 
         return orders_cursor
 
-    def get_symbols(self, date_list=None, mgr_list=None, bkr_list=None):
+    def list_symbols(self, date_list=None, mgr_list=None, bkr_list=None):
 
-        """ Get list of unique symbols """
+        """ List of unique symbols, return a list """
 
         # create filter
         filter_order = _generate_filter(date_list=date_list, mgr_list=mgr_list, bkr_list=bkr_list)
@@ -235,9 +215,9 @@ class OrdersReservoir(object):
 
         return symbols_list
 
-    def get_dates(self, symbol_list=None, mgr_list=None, bkr_list=None):
+    def list_dates(self, symbol_list=None, mgr_list=None, bkr_list=None):
 
-        """ Get list of unique dates """
+        """ List of unique dates, return a list """
 
         # create filter
         filter_order = _generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list)
@@ -254,11 +234,37 @@ class OrdersReservoir(object):
 
         return dates_list
 
-    def bucket_stuff(self, field_x, field_y, boundaries, symbol_list=None, mgr_list=None,
+    # DELETE #############################################################
+
+    def empty_reservoir(self):
+
+        """ Drop the orders database """
+
+        self._client.drop_database(self._db_name)
+
+    # AGGREGATE ##########################################################
+
+    def bucketed_stats(self, field_x, field_y, boundaries, symbol_list=None, mgr_list=None,
                      bkr_list=None, date_list=None, sign=None,
                      start_inf=None, start_sup=None, end_inf=None, end_sup=None,
                      duration_ph_inf=None, duration_ph_sup=None, duration_vol_inf=None, duration_vol_sup=None,
                      prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
+
+        '''
+
+        Calculate the mean and the standard deviation of the x and y
+        values of points, bucketing on the x axis
+
+        Input:
+        ------
+        field_x: string, name of the x axis
+        field_y: string, name of the y axis
+        boundaries: list, bucket boundaries of the x axis
+
+        Output:
+        -------
+        cursor
+        '''
 
         # create filter
         filter_order = _generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list,
@@ -272,20 +278,70 @@ class OrdersReservoir(object):
         # get the collection of orders
         collection_orders = self._db_orders['orders']
 
+        # filter pipe
         p_match = {'$match': filter_order}
 
+        # bucket pipe
         p_bucket = {'$bucket': {'groupBy': '$'+field_x,
                                 'boundaries': boundaries,
                                 'default': "Other",
                                 'output': {
                                     'm_x': {'$avg': '$'+field_x},
                                     's_x': {'$stdDevPop': '$'+field_x},
+                                    'nn': {'$sum': 1},
                                     'm_y': {'$avg': '$'+field_y},
                                     's_y': {'$stdDevPop': '$'+field_y}
                                 }}}
 
+        # apply pipeline
         tmp = collection_orders.aggregate([p_match, p_bucket])
+
+        # return cursor
         return tmp
 
+    def average_path(self, duration, symbol_list=None, mgr_list=None,
+                     bkr_list=None, date_list=None, sign=None,
+                     start_inf=None, start_sup=None, end_inf=None, end_sup=None,
+                     prp_inf=None, prp_sup=None, prd_inf=None, prd_sup=None):
+
+        '''
+        Average the mi paths for the orders of a given duration
+
+        Input:
+        ------
+        duration: int, the order duration
+
+        Output:
+        -------
+        cursor
+        '''
+
+        # create filter
+        filter_order = _generate_filter(symbol_list=symbol_list, mgr_list=mgr_list, bkr_list=bkr_list,
+                                        date_list=date_list, sign=sign,
+                                        start_inf=start_inf, start_sup=start_sup,
+                                        end_inf=end_inf, end_sup=end_sup,
+                                        duration_ph_inf=duration, duration_ph_sup=duration+1,
+                                        prp_inf=prp_inf, prp_sup=prp_sup, prd_inf=prd_inf, prd_sup=prd_sup)
+
+        # get the collection of orders
+        collection_orders = self._db_orders['orders']
+
+        # generate the filter step
+        p_match = {'$match': filter_order}
+
+        # generate the group step
+        # average the impact at i-th minute for all the minutes between 0 and the duration selected
+        tmp_0 = {'_id': ''}
+        for i in range(duration):
+            tmp_0[str(i)] = {'$avg': '$mi.m_'+str(i)}
+        # count the number of orders
+        tmp_0['nn'] = {'$sum': 1}
+        # generate the pipe
+        p_average = {'$group': tmp_0}
+
+        # aggregate
+        tmp = collection_orders.aggregate([p_match, p_average])
+        return tmp
 
 
