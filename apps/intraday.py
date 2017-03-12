@@ -19,7 +19,7 @@ from bokeh.plotting import figure
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
-from dana.dana import OrdersReservoir
+from dana.reservoir import OrdersReservoir
 
 
 def connect_db():
@@ -31,8 +31,8 @@ def connect_db():
     api = OrdersReservoir(engine_url=engine_url, db_name=text_db_orders.value)
 
     # get available symbols and dates
-    list_symbols = api.get_symbols()
-    list_dates_0 = api.get_dates()
+    list_symbols = api.list_symbols()
+    list_dates_0 = api.list_dates()
     list_dates = [str(i) for i in list_dates_0]
 
     # display new available symbols and dates
