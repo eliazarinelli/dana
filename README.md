@@ -1,4 +1,4 @@
-# dana - Data Analysis Projects
+# DAna - Data Analysis projects
 
 ## Setup
 
