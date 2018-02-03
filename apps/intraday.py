@@ -94,7 +94,6 @@ text_db_orders = TextInput(title='Name database orders:', value=name_db_orders, 
 
 
 # Symbol and date selection
-
 list_symbols = ['None']
 select_symbol = Select(title="Symbol:", value='Pippo', options=list_symbols, width=60)
 

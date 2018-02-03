@@ -59,7 +59,7 @@ def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=N
            tmp['$gte'] = duration_vol_inf
         if duration_ph_sup is not None:
            tmp['$lt'] = duration_vol_sup
-        filter_in['mi.duration_vol'] = tmp
+        filter_in['ci.duration_vol'] = tmp
 
     if prp_inf is not None or prp_sup is not None:
         tmp = {}
@@ -67,7 +67,7 @@ def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=N
            tmp['$gte'] = prp_inf
         if prp_sup is not None:
            tmp['$lt'] = prp_sup
-        filter_in['mi.pr_period'] = tmp
+        filter_in['ci.pr_period'] = tmp
 
     if prd_inf is not None or prd_sup is not None:
         tmp = {}
@@ -75,7 +75,7 @@ def _generate_filter(symbol_list=None, mgr_list=None, bkr_list=None, date_list=N
            tmp['$gte'] = prd_inf
         if prd_sup is not None:
            tmp['$lt'] = prd_sup
-        filter_in['mi.pr_day'] = tmp
+        filter_in['ci.pr_day'] = tmp
 
     return filter_in
 
